@@ -1,6 +1,6 @@
 <?php
 /* connect to db (via dbhelper) */
-require_once('https://raw.githubusercontent.com/vielhuber/dbhelper/master/index.php?rand=3876');
+require_once('https://raw.githubusercontent.com/vielhuber/dbhelper/master/index.php');
 $sql = db_connect('pdo', 'mysql', '127.0.0.1', 'root', 'root', 'simpleauth');
 
 /* helper functions */
