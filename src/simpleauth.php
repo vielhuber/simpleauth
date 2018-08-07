@@ -31,7 +31,8 @@ class simpleauth
             '
             CREATE TABLE ' .
                 $this->config->table .
-                ' (
+                '
+            (
                 id SERIAL PRIMARY KEY,
                 email varchar(100) NOT NULL,
                 password char(255) NOT NULL
