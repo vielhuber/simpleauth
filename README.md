@@ -1,8 +1,8 @@
-# ⚿ simpleauth ⚿
+# 🔒 simpleauth 🔒
 
 simpleauth is a simple php based authentication library.
 
-it leverages
+it leverages:
 
 -   json web tokens
 -   bcrypted passwords
@@ -20,6 +20,7 @@ then add this to your files:
 ```php
 require __DIR__.'/vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
+
 $auth = new simpleauth([
     'dbms' => 'mysql',
     'host' => '127.0.0.1',
