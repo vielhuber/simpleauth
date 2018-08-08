@@ -1,117 +1,51 @@
 <?php
-use vielhuber\comparehelper\comparehelper;
+use vielhuber\simpleauth\simpleauth;
 
 class BasicTest extends \PHPUnit\Framework\TestCase
 {
+    protected $auth = null;
 
-    function test__compare()
+    protected function setUp()
     {
-
-        $this->assertSame(CompareHelper::compare('foo','foo'), true);
-
-        $this->assertSame(CompareHelper::compare(42,42), true);
-
-        $this->assertSame(CompareHelper::compare(42,'42'), false);
-
-        $this->assertSame(CompareHelper::compare(
-            [
-                'foo' => 'bar'
-            ],
-            [
-                'foo' => 'bar',
-                'foo2' => 'bar'
-            ]
-        ), false);
-
-        $this->assertSame(CompareHelper::compare(
-            [
-                'foo' => 'bar',
-                'bar' => [
-                    'baz',
-                    42
-                ]
-            ],
-            [
-                '#INT#' => 'bar',
-                'bar' => [
-                    '#STR#',
-                    '#INT#'
-                ]
-            ]
-        ), false);
-
-        $this->assertSame(CompareHelper::compare(
-            [
-                'foo' => 'bar',
-                'bar' => [
-                    'baz',
-                    42
-                ]
-            ],
-            [
-                'foo' => '*',
-                'bar' => [
-                    '#INT#',
-                    '#STR#'
-                ]
-            ]           
-        ), false);
-
-        $this->assertSame(CompareHelper::compare(
-            [
-                'foo' => 'bar',
-                'bar' => [
-                    'baz',
-                    42
-                ]
-            ],
-            [
-                '*' => '*',
-                'bar' => [
-                    '#STR#',
-                    '#INT#'
-                ]
-            ]
-        ), true);
-
-        $this->assertSame(CompareHelper::compare(
-            [
-                'foo' => 'bar',
-                'bar' => [
-                    'baz',
-                    42
-                ]
-            ],
-            [
-                '*' => '*',
-                'bar' => [
-                    42,
-                    'baz'
-                ]
-            ]
-        ), true);
-
-        $this->assertSame(CompareHelper::compare(['foo','bar'],['bar','foo']), true);
-
-        $this->assertSame(CompareHelper::compare(['#INT#' => true, '#STR#' => true],[42 => true, 'foo' => true]), true);
-
-        $this->assertSame(CompareHelper::compare(['#STR#' => true, '#INT#' => true],[42 => true, 'foo' => true]), false);
-
-        $this->assertSame(CompareHelper::compare(['#INT#', '#STR#'], [42, 'foo']), true);
-
-        $this->assertSame(CompareHelper::compare(['#STR#', '#INT#'], [42, 'foo']), false);
-
-        $this->assertSame(CompareHelper::compare(['foo' => 7,'bar' => 42],['bar' => 42,'foo' => 7,]), true);
-
-        $this->assertSame(CompareHelper::compare(['#INT#' => 7,'#STR#' => 42],[7 => 7,'foo' => 42]), true);
-
-        $this->assertSame(CompareHelper::compare(['#INT#' => 7,'#STR#' => 42],['foo' => 42,7 => 7]), false);
-
-        $this->assertTrue(CompareHelper::compare(
-            json_decode('{"pages":"*"}'),
-            json_decode('{"pages":{"1":"foo"}}')
-        ));       
-
+        $this->auth = new simpleauth([
+            'dbms' => 'mysql',
+            'host' => '127.0.0.1',
+            'username' => 'root',
+            'password' => 'root',
+            'database' => 'simpleauth',
+            'table' => 'users',
+            'port' => 3306,
+            'ttl' => 30
+        ]);
+        $this->auth->deleteTable();
+        $this->auth->createTable();
     }
 
+    protected function tearDown()
+    {
+        $this->auth->deleteTable();
+    }
+
+    function test__all()
+    {
+        $this->assertSame(
+            $this->auth->createUser('david@vielhuber.de', 'secret'),
+            true
+        );
+
+        $this->assertSame(
+            strlen($this->auth->login('david@vielhuber.de', 'secret')) > 10,
+            true
+        );
+
+        $this->assertSame($this->auth->isLoggedIn(), true);
+
+        $this->assertSame($this->auth->getCurrentUserId(), 1);
+
+        $this->assertSame($this->auth->logout(), true);
+
+        $this->assertSame($this->auth->isLoggedIn(), false);
+
+        $this->assertSame($this->auth->getCurrentUserId(), null);
+    }
 }

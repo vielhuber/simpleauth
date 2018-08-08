@@ -25,16 +25,17 @@ $auth = new simpleauth([
     'host' => '127.0.0.1',
     'username' => 'foo',
     'password' => 'bar',
-    'database' => 'baz'
+    'database' => 'baz',
     'table' => 'users',
-    'port' => 3306
+    'port' => 3306,
+    'ttl' => 30
 ]);
 ```
 
 ## usage
 
 ```php
-$auth->migrate();
+$auth->createTable();
 
 $auth->createUser($email, $password);
 
@@ -45,4 +46,6 @@ $auth->isLoggedIn();
 $auth->getCurrentUserId();
 
 $auth->logout();
+
+$auth->deleteTable();
 ```

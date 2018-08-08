@@ -12,24 +12,24 @@ class simpleauth
 
     function __construct($config)
     {
-        $this->config = $config;
+        $this->config = (object) $config;
         $this->db = new dbhelper();
         $this->db->connect(
             'pdo',
-            $config['dbms'],
-            $config['host'],
-            $config['username'],
-            $config['password'],
-            $config['database'],
-            $config['port']
+            $this->config->dbms,
+            $this->config->host,
+            $this->config->username,
+            $this->config->password,
+            $this->config->database,
+            $this->config->port
         );
     }
 
-    function migrate()
+    function createTable()
     {
         $this->db->query(
             '
-            CREATE TABLE ' .
+            CREATE TABLE IF NOT EXISTS ' .
                 $this->config->table .
                 '
             (
@@ -39,27 +39,65 @@ class simpleauth
             )
         '
         );
+        return true;
     }
 
     function createUser($email, $password)
     {
         if (
             $this->db->fetch_var(
-                'SELECT COUNT(id) FROM users WHERE email = ?',
+                'SELECT COUNT(id) FROM ' .
+                    $this->config->table .
+                    ' WHERE email = ?',
                 $email
             ) > 0
         ) {
             throw new \Exception('user already exists');
         }
-        db_query(
-            'INSERT INTO users(email,password) VALUES(?,?)',
+        $this->db->query(
+            'INSERT INTO ' .
+                $this->config->table .
+                '(email,password) VALUES(?,?)',
             $email,
             password_hash($password, PASSWORD_DEFAULT)
         );
+        return true;
     }
 
-    function login($username, $password)
+    function login($email, $password)
     {
+        if ($email == '' || $password == '') {
+            throw new \Exception('email or password missing');
+        }
+
+        $user = $this->db->fetch_row(
+            'SELECT * FROM ' . $this->config->table . ' WHERE email = ?',
+            $email
+        );
+
+        if (empty($user) || !password_verify($password, $user['password'])) {
+            throw new \Exception('email or password wrong');
+        }
+
+        $access_token = JWT::encode(
+            [
+                'iss' => $_SERVER['HTTP_HOST'], // issuer
+                'exp' => time() + 60 * 60 * 24 * $this->config->ttl, // ttl
+                'sub' => $user['id'] // user id
+            ],
+            $this->secret
+        );
+
+        @setcookie(
+            'access_token',
+            $access_token,
+            time() + 60 * 60 * 24 * $this->config->ttl,
+            '/'
+        );
+
+        $_COOKIE['access_token'] = $access_token;
+
+        return $access_token;
     }
 
     function isLoggedIn()
@@ -70,17 +108,30 @@ class simpleauth
     function getCurrentUserId()
     {
         try {
-            return JWT::decode(
-                $_COOKIE['access_token'],
-                $this->config['secret'],
-                ['HS256']
-            )->sub;
-        } catch (Exception $e) {
+            return JWT::decode($_COOKIE['access_token'], $this->secret, [
+                'HS256'
+            ])->sub;
+        } catch (\Exception $e) {
             return null;
         }
     }
 
     function logout()
     {
+        if (
+            !isset($_COOKIE['access_token']) ||
+            $_COOKIE['access_token'] == ''
+        ) {
+            return true;
+        }
+        unset($_COOKIE['access_token']);
+        @setcookie('access_token', '', time() - 3600, '/');
+        return true;
+    }
+
+    function deleteTable()
+    {
+        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->table);
+        return true;
     }
 }
