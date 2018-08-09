@@ -47,5 +47,14 @@ class BasicTest extends \PHPUnit\Framework\TestCase
         $this->assertSame($this->auth->isLoggedIn(), false);
 
         $this->assertSame($this->auth->getCurrentUserId(), null);
+
+        $this->assertSame($this->auth->deleteUser('david@vielhuber.de'), true);
+
+        try {
+            $this->auth->login('david@vielhuber.de', 'secret');
+            $this->assertSame(true, false);
+        } catch (\Exception $e) {
+            $this->assertSame(true, true);
+        }
     }
 }

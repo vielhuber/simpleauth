@@ -64,6 +64,25 @@ class simpleauth
         return true;
     }
 
+    function deleteUser($email)
+    {
+        if (
+            $this->db->fetch_var(
+                'SELECT COUNT(id) FROM ' .
+                    $this->config->table .
+                    ' WHERE email = ?',
+                $email
+            ) == 0
+        ) {
+            throw new \Exception('user does not exists');
+        }
+        $this->db->query(
+            'DELETE FROM ' . $this->config->table . ' WHERE email = ?',
+            $email
+        );
+        return true;
+    }
+
     function login($email, $password)
     {
         if ($email == '' || $password == '') {
@@ -88,12 +107,17 @@ class simpleauth
             $this->secret
         );
 
-        @setcookie(
-            'access_token',
-            $access_token,
-            time() + 60 * 60 * 24 * $this->config->ttl,
-            '/'
-        );
+        if (
+            PHP_SAPI != 'cli' ||
+            strpos($_SERVER['argv'][0], 'phpunit') === false
+        ) {
+            setcookie(
+                'access_token',
+                $access_token,
+                time() + 60 * 60 * 24 * $this->config->ttl,
+                '/'
+            );
+        }
 
         $_COOKIE['access_token'] = $access_token;
 
@@ -108,7 +132,7 @@ class simpleauth
     function getCurrentUserId()
     {
         try {
-            return JWT::decode($_COOKIE['access_token'], $this->secret, [
+            return JWT::decode(@$_COOKIE['access_token'], $this->secret, [
                 'HS256'
             ])->sub;
         } catch (\Exception $e) {
@@ -125,7 +149,12 @@ class simpleauth
             return true;
         }
         unset($_COOKIE['access_token']);
-        @setcookie('access_token', '', time() - 3600, '/');
+        if (
+            PHP_SAPI != 'cli' ||
+            strpos($_SERVER['argv'][0], 'phpunit') === false
+        ) {
+            setcookie('access_token', '', time() - 3600, '/');
+        }
         return true;
     }
 

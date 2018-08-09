@@ -36,17 +36,19 @@ $auth = new simpleauth([
 ## usage
 
 ```php
+// table migrations included
 $auth->createTable();
+$auth->deleteTable();
 
+// easy user management
 $auth->createUser($email, $password);
+$auth->deleteUser($email);
 
+// do this before any output (cookies are set)
 $auth->login($email, $password);
-
-$auth->isLoggedIn();
-
-$auth->getCurrentUserId();
-
 $auth->logout();
 
-$auth->deleteTable();
+// this does not need any database lookups
+$auth->isLoggedIn();
+$auth->getCurrentUserId();
 ```
