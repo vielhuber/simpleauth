@@ -4,6 +4,7 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 } elseif (file_exists(__DIR__ . '/../vendor/autoload.php')) {
     require_once __DIR__ . '/../vendor/autoload.php';
 }
+require_once __DIR__ . '/config.php';
 
 use vielhuber\simpleauth\simpleauth;
 use vielhuber\dbhelper\dbhelper;
@@ -19,16 +20,8 @@ class Api
 
     private function setupAuth()
     {
-        $this->auth = new simpleauth([
-            'dbms' => 'mysql',
-            'host' => '127.0.0.1',
-            'username' => 'root',
-            'password' => 'root',
-            'database' => 'simpleauth',
-            'table' => 'users',
-            'port' => 3306,
-            'ttl' => 30
-        ]);
+        global $config;
+        $this->auth = new simpleauth($config);
     }
 
     public function getRequest()

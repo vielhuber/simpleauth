@@ -62,7 +62,13 @@ if you instead/also want to use a fully prepared api, simply copy out the auth f
 cp -r vendor/vielhuber/simpleauth/auth auth/
 ```
 
-edit the database credentials inside `auth/index.php`, run `php auth/migrate` and `php auth/seed` and you should be done.
+now
+
+-   edit the database credentials inside `auth/config.php`
+-   run `php auth/migrate`
+-   run `php auth/seed`
+
+and you should be done.
 
 the following routes are then provided automatically:
 
