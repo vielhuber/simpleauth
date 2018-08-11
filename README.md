@@ -64,21 +64,12 @@ cp -r vendor/vielhuber/simpleauth/auth auth/
 
 The following routes are then provided automatically:
 
-| route  | method | arguments      | header | response |
-| ------ | ------ | -------------- | ------ | -------- |
-| /login | POST   | email password | --     | ```([    |
-
-    'success' => true,
-    'message' => 'auth successful',
-    'public_message' => '...',
-    'data' => [ 'access_token' => '...',
-    'expires_in' => 3600,
-    'user_id' => 42 ] ],
-    200)``` |
-
-| /refresh | POST | -- | Authorization: Bearer token | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
-| /logout | POST | -- | Authorization: Bearer token | `([ 'success' => true, 'message' => 'logout successful', 'public_message' => '...' ], 200)` |
-| /check | POST | access_token | -- | `([ 'success' => true, 'message' => 'valid token', 'public_message' => '...', 'data' => [ 'expires_in' => 3600, 'user_id' => 42, 'client_id' => 7000000 ] ], 200)` |
+| route    | method | arguments      | header                      | response                                                                                                                                                                |
+| -------- | ------ | -------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| /login   | POST   | email password | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
+| /refresh | POST   | --             | Authorization: Bearer token | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
+| /logout  | POST   | --             | Authorization: Bearer token | `([ 'success' => true, 'message' => 'logout successful', 'public_message' => '...' ], 200)`                                                                             |
+| /check   | POST   | access_token   | --                          | `([ 'success' => true, 'message' => 'valid token', 'public_message' => '...', 'data' => [ 'expires_in' => 3600, 'user_id' => 42, 'client_id' => 7000000 ] ], 200)`      |
 
 ## frontend
 
