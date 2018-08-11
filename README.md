@@ -64,7 +64,7 @@ cp -r vendor/vielhuber/simpleauth/auth auth/
 
 now
 
--   edit the database credentials inside `auth/config.php`
+-   edit your database credentials inside `auth/config.php`
 -   run `php auth/migrate`
 -   run `php auth/seed`
 
