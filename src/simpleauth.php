@@ -121,7 +121,11 @@ class simpleauth
 
         $_COOKIE['access_token'] = $access_token;
 
-        return $access_token;
+        return [
+            'access_token' => $access_token,
+            'expires_in' => $this->config->ttl,
+            'user_id' => $user['id']
+        ];
     }
 
     function isLoggedIn()

@@ -34,7 +34,11 @@ class BasicTest extends \PHPUnit\Framework\TestCase
         );
 
         $this->assertSame(
-            strlen($this->auth->login('david@vielhuber.de', 'secret')) > 10,
+            strlen(
+                $this->auth->login('david@vielhuber.de', 'secret')[
+                    'access_token'
+                ]
+            ) > 10,
             true
         );
 

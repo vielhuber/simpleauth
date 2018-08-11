@@ -1,51 +1,61 @@
 <?php
-require_once __DIR__ . '/../../vendor/autoload.php';
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+} elseif (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+}
 
 use vielhuber\simpleauth\simpleauth;
 use vielhuber\dbhelper\dbhelper;
 
 class Api
 {
+    private $auth = null;
+
     public function __construct()
     {
-        $this->getRequest();
+        $this->setupAuth();
     }
 
-    private function getRequest()
+    private function setupAuth()
+    {
+        $this->auth = new simpleauth([
+            'dbms' => 'mysql',
+            'host' => '127.0.0.1',
+            'username' => 'root',
+            'password' => 'root',
+            'database' => 'simpleauth',
+            'table' => 'users',
+            'port' => 3306,
+            'ttl' => 30
+        ]);
+    }
+
+    public function getRequest()
     {
         if (
             $this->getRequestMethod() === 'POST' &&
-            $this->getRequestPathFirst() === 'login'
+            $this->getRequestPath() === 'login'
         ) {
-            return $this->index();
+            return $this->login();
         }
         if (
             $this->getRequestMethod() === 'POST' &&
-            $this->getRequestPathFirst() === 'logout' &&
-            is_numeric($this->getRequestPathSecond())
+            $this->getRequestPath() === 'refresh'
         ) {
-            return $this->show($this->getRequestPathSecond());
+            return $this->refresh();
         }
         if (
             $this->getRequestMethod() === 'POST' &&
-            $this->getRequestPathFirst() === 'refresh' &&
-            $this->getRequestPathSecond() === null
+            $this->getRequestPath() === 'logout'
         ) {
-            return $this->create();
+            return $this->logout();
         }
         if (
-            $this->getRequestMethod() === 'PUT' &&
-            $this->getRequestPathFirst() === 'tickets' &&
-            is_numeric($this->getRequestPathSecond())
+            $this->getRequestMethod() === 'POST' &&
+            $this->getRequestPath() === 'check'
         ) {
-            return $this->update($this->getRequestPathSecond());
-        }
-        if (
-            $this->getRequestMethod() === 'DELETE' &&
-            $this->getRequestPathFirst() === 'tickets' &&
-            is_numeric($this->getRequestPathSecond())
-        ) {
-            return $this->delete($this->getRequestPathSecond());
+            return $this->check();
         }
         return $this->response(
             [
@@ -60,27 +70,9 @@ class Api
     private function getRequestPath()
     {
         $path = $_SERVER['REQUEST_URI'];
-        $path = str_replace('_api', '', $path);
         $path = trim($path, '/');
+        $path = substr($path, strrpos($path, '/') + 1);
         return $path;
-    }
-
-    private function getRequestPathFirst()
-    {
-        $part = explode('/', $this->getRequestPath());
-        if (!isset($part[0])) {
-            return null;
-        }
-        return $part[0];
-    }
-
-    private function getRequestPathSecond()
-    {
-        $part = explode('/', $this->getRequestPath());
-        if (!isset($part[1])) {
-            return null;
-        }
-        return $part[1];
     }
 
     private function getRequestMethod()
@@ -88,7 +80,48 @@ class Api
         return $_SERVER['REQUEST_METHOD'];
     }
 
-    private function index()
+    private function input($key)
+    {
+        $p1 = $_POST;
+        $p2 = json_decode(file_get_contents('php://input'), true);
+        if (isset($p1) && !empty($p1) && array_key_exists($key, $p1)) {
+            return $p1[$key];
+        }
+        if (isset($p2) && !empty($p2) && array_key_exists($key, $p2)) {
+            return $p2[$key];
+        }
+        return null;
+    }
+
+    private function login()
+    {
+        try {
+            $data = $this->auth->login(
+                $this->input('email'),
+                $this->input('password')
+            );
+            return $this->response(
+                [
+                    'success' => true,
+                    'message' => 'auth successful',
+                    'public_message' => 'Erfolgreich eingeloggt',
+                    'data' => $data
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->response(
+                [
+                    'success' => false,
+                    'message' => 'auth not successful',
+                    'public_message' => 'Nicht erfolgreich'
+                ],
+                401
+            );
+        }
+    }
+
+    private function refresh()
     {
         return $this->response([
             'success' => true,
@@ -96,7 +129,7 @@ class Api
         ]);
     }
 
-    private function show($id)
+    private function logout()
     {
         return $this->response([
             'success' => true,
@@ -104,26 +137,11 @@ class Api
         ]);
     }
 
-    private function create()
+    private function check($id)
     {
         return $this->response([
             'success' => true,
             'data' => 'todo'
-        ]);
-    }
-
-    private function update($id)
-    {
-        return $this->response([
-            'success' => true,
-            'data' => 'todo'
-        ]);
-    }
-
-    private function delete($id)
-    {
-        return $this->response([
-            'success' => true
         ]);
     }
 
@@ -133,6 +151,20 @@ class Api
         echo json_encode($data);
         die();
     }
+
+    public function migrate()
+    {
+        $this->auth->createTable();
+    }
+
+    public function seed()
+    {
+        $this->auth->createUser('david@vielhuber.de', 'secret');
+    }
 }
 
 $api = new Api();
+
+if (php_sapi_name() !== 'cli') {
+    $api->getRequest();
+}
