@@ -14,22 +14,21 @@ class Api
     private function getRequest()
     {
         if (
-            $this->getRequestMethod() === 'GET' &&
-            $this->getRequestPathFirst() === 'tickets' &&
-            $this->getRequestPathSecond() === null
+            $this->getRequestMethod() === 'POST' &&
+            $this->getRequestPathFirst() === 'login'
         ) {
             return $this->index();
         }
         if (
-            $this->getRequestMethod() === 'GET' &&
-            $this->getRequestPathFirst() === 'tickets' &&
+            $this->getRequestMethod() === 'POST' &&
+            $this->getRequestPathFirst() === 'logout' &&
             is_numeric($this->getRequestPathSecond())
         ) {
             return $this->show($this->getRequestPathSecond());
         }
         if (
             $this->getRequestMethod() === 'POST' &&
-            $this->getRequestPathFirst() === 'tickets' &&
+            $this->getRequestPathFirst() === 'refresh' &&
             $this->getRequestPathSecond() === null
         ) {
             return $this->create();
