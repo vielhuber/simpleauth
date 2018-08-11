@@ -71,4 +71,4 @@ The following routes are then provided automatically:
 
 ## frontend
 
-if you need a neat frontend library that works together with simpleauth seemlessly, try out (jtwbutler)[https://github.com/vielhuber/jwtbutler].
+if you need a neat frontend library that works together with simpleauth seemlessly, try out [jtwbutler](https://github.com/vielhuber/jwtbutler).
