@@ -6,6 +6,7 @@ it leverages:
 
 -   json web tokens
 -   bcrypted passwords
+-   full api
 
 ## installation
 
@@ -52,3 +53,22 @@ $auth->logout();
 $auth->isLoggedIn();
 $auth->getCurrentUserId();
 ```
+
+## api
+
+if you instead/also want to use a fully prepared api, simply copy out the auth folder in your public directory:
+
+```
+cp -r vendor/vielhuber/simpleauth/auth auth/
+```
+
+The following routes are then provided automatically:
+
+-   /login (email, password)
+-   /logout
+-   /refresh
+-   /check (access_token)
+
+## frontend
+
+if you need a neat frontend library that works together with simpleauth seemlessly, try out (jtwbutler)[https://github.com/vielhuber/jwtbutler].
