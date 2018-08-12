@@ -4,6 +4,18 @@ namespace vielhuber\simpleauth;
 use vielhuber\dbhelper\dbhelper;
 use Firebase\JWT\JWT;
 
+// cors
+if (PHP_SAPI != 'cli' || strpos($_SERVER['argv'][0], 'phpunit') === false) {
+    header('Access-Control-Allow-Origin: *');
+    header(
+        'Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS'
+    );
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    if (@$_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+        die();
+    }
+}
+
 class simpleauth
 {
     private $config = null;
@@ -98,11 +110,40 @@ class simpleauth
             throw new \Exception('email or password wrong');
         }
 
+        return $this->getTokenAndSetCookie($user['id']);
+    }
+
+    function refresh($access_token)
+    {
+        try {
+            $user_id = $this->getUserIdFromAccessToken($access_token);
+            return $this->getTokenAndSetCookie($user_id);
+        } catch (\Exception $e) {
+            throw new \Exception('wrong access token');
+        }
+    }
+
+    function check($access_token)
+    {
+        try {
+            $user_id = $this->getUserIdFromAccessToken($access_token);
+            return [
+                'access_token' => $access_token,
+                'expires_in' => $this->config->ttl,
+                'user_id' => $user_id
+            ];
+        } catch (\Exception $e) {
+            throw new \Exception('wrong access token');
+        }
+    }
+
+    private function getTokenAndSetCookie($user_id)
+    {
         $access_token = JWT::encode(
             [
                 'iss' => $_SERVER['HTTP_HOST'], // issuer
                 'exp' => time() + 60 * 60 * 24 * $this->config->ttl, // ttl
-                'sub' => $user['id'] // user id
+                'sub' => $user_id
             ],
             $this->secret
         );
@@ -124,8 +165,22 @@ class simpleauth
         return [
             'access_token' => $access_token,
             'expires_in' => $this->config->ttl,
-            'user_id' => $user['id']
+            'user_id' => $user_id
         ];
+    }
+
+    function getUserIdFromAccessToken($access_token)
+    {
+        try {
+            $data = JWT::decode(
+                str_replace('Bearer ', '', $access_token),
+                $this->secret,
+                ['HS256']
+            );
+            return $data->sub;
+        } catch (\Exception $e) {
+            throw new \Exception('wrong access token');
+        }
     }
 
     function isLoggedIn()
@@ -166,5 +221,192 @@ class simpleauth
     {
         $this->db->query('DROP TABLE IF EXISTS ' . $this->config->table);
         return true;
+    }
+
+    function api()
+    {
+        if (
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'login'
+        ) {
+            return $this->apiLogin();
+        }
+        if (
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'refresh'
+        ) {
+            return $this->apiRefresh();
+        }
+        if (
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'logout'
+        ) {
+            return $this->apiLogout();
+        }
+        if (
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'check'
+        ) {
+            return $this->apiCheck();
+        }
+        return $this->apiResponse(
+            [
+                'success' => false,
+                'message' => 'unknown route',
+                'public_message' => 'Unbekannte Route!'
+            ],
+            404
+        );
+    }
+
+    private function apiRequestPath()
+    {
+        $path = $_SERVER['REQUEST_URI'];
+        $path = trim($path, '/');
+        $path = substr($path, strrpos($path, '/') + 1);
+        return $path;
+    }
+
+    private function apiRequestMethod()
+    {
+        return $_SERVER['REQUEST_METHOD'];
+    }
+
+    private function apiInput($key)
+    {
+        $p1 = $_POST;
+        $p2 = json_decode(file_get_contents('php://input'), true);
+        if (isset($p1) && !empty($p1) && array_key_exists($key, $p1)) {
+            return $p1[$key];
+        }
+        if (isset($p2) && !empty($p2) && array_key_exists($key, $p2)) {
+            return $p2[$key];
+        }
+        return null;
+    }
+
+    private function apiLogin()
+    {
+        try {
+            $data = $this->login(
+                $this->apiInput('email'),
+                $this->apiInput('password')
+            );
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'auth successful',
+                    'public_message' => 'Erfolgreich eingeloggt',
+                    'data' => $data
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'auth not successful',
+                    'public_message' => 'Nicht erfolgreich'
+                ],
+                401
+            );
+        }
+    }
+
+    private function apiRefresh()
+    {
+        try {
+            $data = $this->refresh(@$_SERVER['HTTP_AUTHORIZATION']);
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'auth successful',
+                    'public_message' => 'Erfolgreich eingeloggt',
+                    'data' => $data
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'invalid token',
+                    'public_message' => 'Falsches Token'
+                ],
+                401
+            );
+        }
+    }
+
+    private function apiLogout()
+    {
+        try {
+            $this->logout();
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'logout successful',
+                    'public_message' => 'Erfolgreich ausgeloggt'
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'logout not successful',
+                    'public_message' => 'Nicht erfolgreich ausgeloggt'
+                ],
+                401
+            );
+        }
+    }
+
+    private function apiCheck()
+    {
+        try {
+            $data = $this->check($this->apiInput('access_token'));
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'valid token',
+                    'public_message' => 'Korrektes Token',
+                    'data' => $data
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'invalid token',
+                    'public_message' => 'Falsches Token'
+                ],
+                401
+            );
+        }
+    }
+
+    private function apiResponse($data, $code = 200)
+    {
+        http_response_code($code);
+        echo json_encode($data);
+        die();
+    }
+
+    public function migrate()
+    {
+        $this->deleteTable();
+        $this->createTable();
+    }
+
+    public function seed()
+    {
+        try {
+            $this->deleteUser('david@vielhuber.de');
+        } catch (\Exception $e) {
+
+        }
+        $this->createUser('david@vielhuber.de', 'secret');
     }
 }

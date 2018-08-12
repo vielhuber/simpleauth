@@ -26,7 +26,7 @@ class BasicTest extends \PHPUnit\Framework\TestCase
         $this->auth->deleteTable();
     }
 
-    function test__all()
+    function testAll()
     {
         $this->assertSame(
             $this->auth->createUser('david@vielhuber.de', 'secret'),
@@ -40,6 +40,18 @@ class BasicTest extends \PHPUnit\Framework\TestCase
                 ]
             ) > 10,
             true
+        );
+
+        $this->assertSame(
+            strlen(
+                $this->auth->refresh($_COOKIE['access_token'])['access_token']
+            ) > 10,
+            true
+        );
+
+        $this->assertSame(
+            $this->auth->check($_COOKIE['access_token'])['user_id'],
+            1
         );
 
         $this->assertSame($this->auth->isLoggedIn(), true);

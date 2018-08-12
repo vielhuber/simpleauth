@@ -46,6 +46,21 @@ the following routes are then provided automatically:
 if you instead want to have more control, you can use the following public functions in your own application:
 
 ```php
+require __DIR__.'/vendor/autoload.php';
+use vielhuber\simpleauth\simpleauth;
+
+// config
+$auth = new simpleauth([
+    'dbms' => 'mysql',
+    'host' => '127.0.0.1',
+    'username' => 'foo',
+    'password' => 'bar',
+    'database' => 'baz',
+    'table' => 'users',
+    'port' => 3306,
+    'ttl' => 30
+]);
+
 // table migrations included
 $auth->createTable();
 $auth->deleteTable();
@@ -56,7 +71,9 @@ $auth->deleteUser($email);
 
 // do this before any output (cookies are set)
 $auth->login($email, $password);
+$auth->refresh();
 $auth->logout();
+$auth->check($access_token);
 
 // this does not need any database lookups
 $auth->isLoggedIn();
