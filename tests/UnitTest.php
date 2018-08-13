@@ -1,22 +1,14 @@
 <?php
 use vielhuber\simpleauth\simpleauth;
 
-class BasicTest extends \PHPUnit\Framework\TestCase
+class UnitTest extends \PHPUnit\Framework\TestCase
 {
     protected $auth = null;
 
     protected function setUp()
     {
-        $this->auth = new simpleauth([
-            'dbms' => 'mysql',
-            'host' => '127.0.0.1',
-            'username' => 'root',
-            'password' => 'root',
-            'database' => 'simpleauth',
-            'table' => 'users',
-            'port' => 3306,
-            'ttl' => 30
-        ]);
+        require __DIR__.'/../auth/config.php';
+        $this->auth = new simpleauth($config);
         $this->auth->deleteTable();
         $this->auth->createTable();
     }
