@@ -20,7 +20,6 @@ class simpleauth
 {
     private $config = null;
     private $db = null;
-    private $secret = 'jgto038AO4mtWzYcIOM0B2Yq8IKtsd3AXOYN88Pz7HJY60my6T6WIeOjgHCkHhE';
 
     function __construct($config)
     {
@@ -145,7 +144,7 @@ class simpleauth
                 'exp' => time() + 60 * 60 * 24 * $this->config->ttl, // ttl
                 'sub' => $user_id
             ],
-            $this->secret
+            $this->config->secret
         );
 
         if (
@@ -174,7 +173,7 @@ class simpleauth
         try {
             $data = JWT::decode(
                 str_replace('Bearer ', '', $access_token),
-                $this->secret,
+                $this->config->secret,
                 ['HS256']
             );
             return $data->sub;
@@ -191,7 +190,7 @@ class simpleauth
     function getCurrentUserId()
     {
         try {
-            return JWT::decode(@$_COOKIE['access_token'], $this->secret, [
+            return JWT::decode(@$_COOKIE['access_token'], $this->config->secret, [
                 'HS256'
             ])->sub;
         } catch (\Exception $e) {

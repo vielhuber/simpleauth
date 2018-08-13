@@ -24,15 +24,15 @@ cp -r vendor/vielhuber/simpleauth/auth auth/
 
 now
 
--   edit your database credentials inside `auth/config.php`
+-   edit your database credentials and change the secret key inside `auth/config.php`
 -   run `php auth/migrate`
 -   run `php auth/seed`
 
-and you should be done.
+and you should be done. you can now fully authenticate with the routes below.
 
 ## routes
 
-the following routes are then provided automatically:
+the following routes are provided automatically:
 
 | route         | method | arguments      | header                      | response                                                                                                                                                                |
 | ------------- | ------ | -------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -43,23 +43,20 @@ the following routes are then provided automatically:
 
 ## further usage
 
-if you instead want to have more control, you can use the following public functions in your own application:
+you can use the following functions in your own application:
 
 ```php
 require __DIR__.'/vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
 
-// config
-$auth = new simpleauth([
-    'dbms' => 'mysql',
-    'host' => '127.0.0.1',
-    'username' => 'foo',
-    'password' => 'bar',
-    'database' => 'baz',
-    'table' => 'users',
-    'port' => 3306,
-    'ttl' => 30
-]);
+require __DIR__.'/auth/config.php';
+$auth = new simpleauth($config);
+
+// these two common routes are commonly used inside your application (they do not need any database lookups)
+$auth->isLoggedIn();
+$auth->getCurrentUserId();
+
+/* use the following functions instead of the public auth routes, if you need more fine grained control  */
 
 // table migrations included
 $auth->createTable();
@@ -74,10 +71,6 @@ $auth->login($email, $password);
 $auth->refresh();
 $auth->logout();
 $auth->check($access_token);
-
-// this does not need any database lookups
-$auth->isLoggedIn();
-$auth->getCurrentUserId();
 ```
 
 ## frontend
