@@ -7,5 +7,5 @@ $config = [
     'database' => 'simpleauth',
     'table' => 'users',
     'port' => 3306,
-    'ttl' => 30
+    'ttl' => 30,
 ];
