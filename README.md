@@ -41,12 +41,12 @@ RewriteRule ^.*$ /auth/index.php [L,QSA]
 
 #### /.env
 ```.env
-DB_ENGINE=mysql
+DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=simpleauth
 DB_USERNAME=root
 DB_PASSWORD=root
-DB_DATABASE=simpleauth
-DB_PORT=3306
 JWT_TABLE=users
 JWT_TTL=30
 JWT_SECRET=I2hkRtw6t8Yg9Wvlg99Nij23Bvdm0n0L4UPkVC33a7rMo5EQGlnIv79LAOIMIxE

@@ -30,7 +30,7 @@ class simpleauth
         $this->db = new dbhelper();
         $this->db->connect(
             'pdo',
-            $this->config->DB_ENGINE,
+            $this->config->DB_CONNECTION,
             $this->config->DB_HOST,
             $this->config->DB_USERNAME,
             $this->config->DB_PASSWORD,
