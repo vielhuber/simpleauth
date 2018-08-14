@@ -24,7 +24,7 @@ cp -r vendor/vielhuber/simpleauth/auth auth/
 
 now
 
--   run `cp auth/.env.example auth/.env` and edit in `.env` your database credentials and your secret key
+-   run `cp auth/.env.example auth/.env` and edit in `.env` your db credentials and your secret key
 -   run `php auth/migrate`
 -   run `php auth/seed`
 
