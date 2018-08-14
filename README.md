@@ -16,17 +16,48 @@ install once with composer:
 composer require vielhuber/simpleauth
 ```
 
-simply copy out the auth folder in your public directory:
+now simply create the following files in a new folder called `auth` in your public directory:
 
+#### /auth/index.php
+```php
+<?php
+require_once __DIR__.'/../vendor/autoload.php';
+use vielhuber\simpleauth\simpleauth;
+$auth = new simpleauth(__DIR__.'/../.env');
+if (php_sapi_name() !== 'cli') { $auth->api(); }
+elseif(@$argv[1] === 'migrate') { $auth->migrate(); }
+elseif(@$argv[1] === 'seed') { $auth->seed(); }
 ```
-cp -r vendor/vielhuber/simpleauth/auth auth/
+
+#### /auth/.htaccess
+```.htaccess
+RewriteEngine on
+RewriteCond %{HTTP:Authorization} ^(.*)
+RewriteRule .* - [e=HTTP_AUTHORIZATION:%1]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^.*$ /auth/index.php [L,QSA]
 ```
 
-now
+#### /.env
+```.env
+DB_ENGINE=mysql
+DB_HOST=127.0.0.1
+DB_USERNAME=root
+DB_PASSWORD=root
+DB_DATABASE=simpleauth
+DB_PORT=3306
+JWT_TABLE=users
+JWT_TTL=30
+JWT_SECRET=I2hkRtw6t8Yg9Wvlg99Nij23Bvdm0n0L4UPkVC33a7rMo5EQGlnIv79LAOIMIxE
+```
 
--   run `cp auth/.env.example auth/.env` and edit in `.env` your db credentials and your secret key
--   run `php auth/migrate`
--   run `php auth/seed`
+if you want to migrate and seed data, simply run
+
+```sh
+php auth/index.php migrate
+php auth/index.php seed
+```
 
 and you should be done. you can now fully authenticate with the routes below.
 
@@ -48,7 +79,6 @@ you can use the following functions in your own application:
 ```php
 require __DIR__.'/vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
-
 $auth = new simpleauth(__DIR__.'/.env');
 
 // these two common routes are commonly used inside your application (they do not need any database lookups)
