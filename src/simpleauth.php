@@ -3,6 +3,7 @@ namespace vielhuber\simpleauth;
 
 use vielhuber\dbhelper\dbhelper;
 use Firebase\JWT\JWT;
+use Dotenv\Dotenv;
 
 // cors
 if (PHP_SAPI != 'cli' || strpos($_SERVER['argv'][0], 'phpunit') === false) {
@@ -23,16 +24,18 @@ class simpleauth
 
     function __construct($config)
     {
-        $this->config = (object) $config;
+        $dotenv = new Dotenv(str_replace(['/.env','.env'],'',$config));
+        $dotenv->load();
+        $this->config = (object) $_ENV;
         $this->db = new dbhelper();
         $this->db->connect(
             'pdo',
-            $this->config->dbms,
-            $this->config->host,
-            $this->config->username,
-            $this->config->password,
-            $this->config->database,
-            $this->config->port
+            $this->config->DB_ENGINE,
+            $this->config->DB_HOST,
+            $this->config->DB_USERNAME,
+            $this->config->DB_PASSWORD,
+            $this->config->DB_DATABASE,
+            $this->config->DB_PORT
         );
     }
 
@@ -41,7 +44,7 @@ class simpleauth
         $this->db->query(
             '
             CREATE TABLE IF NOT EXISTS ' .
-                $this->config->table .
+                $this->config->DB_TABLE .
                 '
             (
                 id SERIAL PRIMARY KEY,
@@ -58,7 +61,7 @@ class simpleauth
         if (
             $this->db->fetch_var(
                 'SELECT COUNT(id) FROM ' .
-                    $this->config->table .
+                    $this->config->DB_TABLE .
                     ' WHERE email = ?',
                 $email
             ) > 0
@@ -67,7 +70,7 @@ class simpleauth
         }
         $this->db->query(
             'INSERT INTO ' .
-                $this->config->table .
+                $this->config->DB_TABLE .
                 '(email,password) VALUES(?,?)',
             $email,
             password_hash($password, PASSWORD_DEFAULT)
@@ -80,7 +83,7 @@ class simpleauth
         if (
             $this->db->fetch_var(
                 'SELECT COUNT(id) FROM ' .
-                    $this->config->table .
+                    $this->config->DB_TABLE .
                     ' WHERE email = ?',
                 $email
             ) == 0
@@ -88,7 +91,7 @@ class simpleauth
             throw new \Exception('user does not exists');
         }
         $this->db->query(
-            'DELETE FROM ' . $this->config->table . ' WHERE email = ?',
+            'DELETE FROM ' . $this->config->DB_TABLE . ' WHERE email = ?',
             $email
         );
         return true;
@@ -101,7 +104,7 @@ class simpleauth
         }
 
         $user = $this->db->fetch_row(
-            'SELECT * FROM ' . $this->config->table . ' WHERE email = ?',
+            'SELECT * FROM ' . $this->config->DB_TABLE . ' WHERE email = ?',
             $email
         );
 
@@ -128,7 +131,7 @@ class simpleauth
             $user_id = $this->getUserIdFromAccessToken($access_token);
             return [
                 'access_token' => $access_token,
-                'expires_in' => $this->config->ttl,
+                'expires_in' => $this->config->JWT_TTL,
                 'user_id' => $user_id
             ];
         } catch (\Exception $e) {
@@ -141,10 +144,10 @@ class simpleauth
         $access_token = JWT::encode(
             [
                 'iss' => $_SERVER['HTTP_HOST'], // issuer
-                'exp' => time() + 60 * 60 * 24 * $this->config->ttl, // ttl
+                'exp' => time() + 60 * 60 * 24 * $this->config->JWT_TTL, // ttl
                 'sub' => $user_id
             ],
-            $this->config->secret
+            $this->config->JWT_SECRET
         );
 
         if (
@@ -154,7 +157,7 @@ class simpleauth
             setcookie(
                 'access_token',
                 $access_token,
-                time() + 60 * 60 * 24 * $this->config->ttl,
+                time() + 60 * 60 * 24 * $this->config->JWT_TTL,
                 '/'
             );
         }
@@ -163,7 +166,7 @@ class simpleauth
 
         return [
             'access_token' => $access_token,
-            'expires_in' => $this->config->ttl,
+            'expires_in' => $this->config->JWT_TTL,
             'user_id' => $user_id
         ];
     }
@@ -173,7 +176,7 @@ class simpleauth
         try {
             $data = JWT::decode(
                 str_replace('Bearer ', '', $access_token),
-                $this->config->secret,
+                $this->config->JWT_SECRET,
                 ['HS256']
             );
             return $data->sub;
@@ -190,7 +193,7 @@ class simpleauth
     function getCurrentUserId()
     {
         try {
-            return JWT::decode(@$_COOKIE['access_token'], $this->config->secret, [
+            return JWT::decode(@$_COOKIE['access_token'], $this->config->JWT_SECRET, [
                 'HS256'
             ])->sub;
         } catch (\Exception $e) {
@@ -218,7 +221,7 @@ class simpleauth
 
     function deleteTable()
     {
-        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->table);
+        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->DB_TABLE);
         return true;
     }
 

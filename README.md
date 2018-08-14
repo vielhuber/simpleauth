@@ -24,7 +24,7 @@ cp -r vendor/vielhuber/simpleauth/auth auth/
 
 now
 
--   edit your database credentials and change the secret key inside `auth/config.php`
+-   run `cp auth/.env.example auth/.env` and edit in `.env` your database credentials and your secret key
 -   run `php auth/migrate`
 -   run `php auth/seed`
 
@@ -49,8 +49,7 @@ you can use the following functions in your own application:
 require __DIR__.'/vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
 
-require __DIR__.'/auth/config.php';
-$auth = new simpleauth($config);
+$auth = new simpleauth(__DIR__.'/.env');
 
 // these two common routes are commonly used inside your application (they do not need any database lookups)
 $auth->isLoggedIn();

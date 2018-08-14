@@ -7,8 +7,7 @@ class UnitTest extends \PHPUnit\Framework\TestCase
 
     protected function setUp()
     {
-        require __DIR__.'/../auth/config.php';
-        $this->auth = new simpleauth($config);
+        $this->auth = new simpleauth(__DIR__.'/../auth/.env');
         $this->auth->deleteTable();
         $this->auth->createTable();
     }
