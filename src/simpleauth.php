@@ -44,7 +44,7 @@ class simpleauth
         $this->db->query(
             '
             CREATE TABLE IF NOT EXISTS ' .
-                $this->config->DB_TABLE .
+                $this->config->JWT_TABLE .
                 '
             (
                 id SERIAL PRIMARY KEY,
@@ -61,7 +61,7 @@ class simpleauth
         if (
             $this->db->fetch_var(
                 'SELECT COUNT(id) FROM ' .
-                    $this->config->DB_TABLE .
+                    $this->config->JWT_TABLE .
                     ' WHERE email = ?',
                 $email
             ) > 0
@@ -70,7 +70,7 @@ class simpleauth
         }
         $this->db->query(
             'INSERT INTO ' .
-                $this->config->DB_TABLE .
+                $this->config->JWT_TABLE .
                 '(email,password) VALUES(?,?)',
             $email,
             password_hash($password, PASSWORD_DEFAULT)
@@ -83,7 +83,7 @@ class simpleauth
         if (
             $this->db->fetch_var(
                 'SELECT COUNT(id) FROM ' .
-                    $this->config->DB_TABLE .
+                    $this->config->JWT_TABLE .
                     ' WHERE email = ?',
                 $email
             ) == 0
@@ -91,7 +91,7 @@ class simpleauth
             throw new \Exception('user does not exists');
         }
         $this->db->query(
-            'DELETE FROM ' . $this->config->DB_TABLE . ' WHERE email = ?',
+            'DELETE FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?',
             $email
         );
         return true;
@@ -104,7 +104,7 @@ class simpleauth
         }
 
         $user = $this->db->fetch_row(
-            'SELECT * FROM ' . $this->config->DB_TABLE . ' WHERE email = ?',
+            'SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?',
             $email
         );
 
@@ -221,7 +221,7 @@ class simpleauth
 
     function deleteTable()
     {
-        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->DB_TABLE);
+        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->JWT_TABLE);
         return true;
     }
 
