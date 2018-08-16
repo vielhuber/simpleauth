@@ -7,8 +7,8 @@ class ApiTest extends \PHPUnit\Framework\TestCase
 {
     protected function setUp()
     {
-        exec('php auth/migrate');
-        exec('php auth/seed');
+        exec('php auth/index.php migrate');
+        exec('php auth/index.php seed');
     }
 
     protected function tearDown()
