@@ -11,10 +11,6 @@ class ApiTest extends \PHPUnit\Framework\TestCase
         exec('php auth/index.php seed');
     }
 
-    protected function tearDown()
-    {
-    }
-
     function testLogin()
     {
         $this->assertTrue(
