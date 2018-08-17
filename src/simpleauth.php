@@ -346,7 +346,7 @@ class simpleauth
     function getCurrentUserId()
     {
         try {
-            return JWT::decode(@$_COOKIE['access_token'], $this->config->JWT_SECRET, [
+            return JWT::decode(@$_SERVER['HTTP_AUTHORIZATION'], $this->config->JWT_SECRET, [
                 'HS256'
             ])->sub;
         } catch (\Exception $e) {
