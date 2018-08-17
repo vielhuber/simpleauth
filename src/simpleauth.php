@@ -346,9 +346,7 @@ class simpleauth
     function getCurrentUserId()
     {
         try {
-            return JWT::decode(@$_SERVER['HTTP_AUTHORIZATION'], $this->config->JWT_SECRET, [
-                'HS256'
-            ])->sub;
+            return $this->getUserIdFromAccessToken(@$_SERVER['HTTP_AUTHORIZATION']);
         } catch (\Exception $e) {
             return null;
         }
