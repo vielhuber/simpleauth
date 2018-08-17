@@ -39,6 +39,209 @@ class simpleauth
         );
     }
 
+    function api()
+    {
+        if (
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'login'
+        ) {
+            return $this->apiLogin();
+        }
+        if (
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'refresh'
+        ) {
+            return $this->apiRefresh();
+        }
+        if (
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'logout'
+        ) {
+            return $this->apiLogout();
+        }
+        if (
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'check'
+        ) {
+            return $this->apiCheck();
+        }
+        return $this->apiResponse(
+            [
+                'success' => false,
+                'message' => 'unknown route',
+                'public_message' => 'Unbekannte Route!'
+            ],
+            404
+        );
+    }
+
+    function migrate()
+    {
+        $this->deleteTable();
+        $this->createTable();
+    }
+
+    function seed()
+    {
+        try {
+            $this->deleteUser('david@vielhuber.de');
+        } catch (\Exception $e) {
+
+        }
+        $this->createUser('david@vielhuber.de', 'secret');
+    }
+
+    private function apiRequestPath()
+    {
+        $path = $_SERVER['REQUEST_URI'];
+        $path = trim($path, '/');
+        $path = substr($path, strrpos($path, '/') + 1);
+        return $path;
+    }
+
+    private function apiRequestMethod()
+    {
+        return $_SERVER['REQUEST_METHOD'];
+    }
+
+    private function apiInput($key)
+    {
+        $p1 = $_POST;
+        $p2 = json_decode(file_get_contents('php://input'), true);
+        if (isset($p1) && !empty($p1) && array_key_exists($key, $p1)) {
+            return $p1[$key];
+        }
+        if (isset($p2) && !empty($p2) && array_key_exists($key, $p2)) {
+            return $p2[$key];
+        }
+        return null;
+    }
+
+    private function apiLogin()
+    {
+        try {
+            $email = $this->apiInput('email');
+            $password = $this->apiInput('password');
+            if ($email == '' || $password == '') {
+                throw new \Exception('email or password missing');
+            }
+            $user = $this->db->fetch_row(
+                'SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?',
+                $email
+            );
+            if (empty($user) || !password_verify($password, $user['password'])) {
+                throw new \Exception('email or password wrong');
+            }
+            $data = $this->createAccessToken($user['id']);
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'auth successful',
+                    'public_message' => 'Erfolgreich eingeloggt',
+                    'data' => $data
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'auth not successful',
+                    'public_message' => 'Nicht erfolgreich'
+                ],
+                401
+            );
+        }
+    }
+
+    private function apiRefresh()
+    {
+        try {
+            $user_id = $this->getUserIdFromAccessToken(@$_SERVER['HTTP_AUTHORIZATION']);
+            $data = $this->createAccessToken($user_id);
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'auth successful',
+                    'public_message' => 'Erfolgreich eingeloggt',
+                    'data' => $data
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'invalid token',
+                    'public_message' => 'Falsches Token'
+                ],
+                401
+            );
+        }
+    }
+
+    private function apiLogout()
+    {
+        try {
+            // nothing happens :-)
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'logout successful',
+                    'public_message' => 'Erfolgreich ausgeloggt'
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'logout not successful',
+                    'public_message' => 'Nicht erfolgreich ausgeloggt'
+                ],
+                401
+            );
+        }
+    }
+
+    private function apiCheck()
+    {
+        try {
+            $access_token = $this->apiInput('access_token');
+            $user_id = $this->getUserIdFromAccessToken($access_token);
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'valid token',
+                    'public_message' => 'Korrektes Token',
+                    'data' => [
+                        'access_token' => $access_token,
+                        'expires_in' => $this->config->JWT_TTL,
+                        'user_id' => $user_id
+                    ]
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'invalid token',
+                    'public_message' => 'Falsches Token'
+                ],
+                401
+            );
+        }
+    }
+
+    private function apiResponse($data, $code = 200)
+    {
+        http_response_code($code);
+        header('Content-Type: application/json');
+        echo json_encode($data);
+        die();
+    }
+
     function createTable()
     {
         $this->db->query(
@@ -53,6 +256,12 @@ class simpleauth
             )
         '
         );
+        return true;
+    }
+
+    function deleteTable()
+    {
+        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->JWT_TABLE);
         return true;
     }
 
@@ -97,49 +306,7 @@ class simpleauth
         return true;
     }
 
-    function login($email, $password)
-    {
-        if ($email == '' || $password == '') {
-            throw new \Exception('email or password missing');
-        }
-
-        $user = $this->db->fetch_row(
-            'SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?',
-            $email
-        );
-
-        if (empty($user) || !password_verify($password, $user['password'])) {
-            throw new \Exception('email or password wrong');
-        }
-
-        return $this->getTokenAndSetCookie($user['id']);
-    }
-
-    function refresh($access_token)
-    {
-        try {
-            $user_id = $this->getUserIdFromAccessToken($access_token);
-            return $this->getTokenAndSetCookie($user_id);
-        } catch (\Exception $e) {
-            throw new \Exception('wrong access token');
-        }
-    }
-
-    function check($access_token)
-    {
-        try {
-            $user_id = $this->getUserIdFromAccessToken($access_token);
-            return [
-                'access_token' => $access_token,
-                'expires_in' => $this->config->JWT_TTL,
-                'user_id' => $user_id
-            ];
-        } catch (\Exception $e) {
-            throw new \Exception('wrong access token');
-        }
-    }
-
-    private function getTokenAndSetCookie($user_id)
+    private function createAccessToken($user_id)
     {
         $access_token = JWT::encode(
             [
@@ -149,20 +316,6 @@ class simpleauth
             ],
             $this->config->JWT_SECRET
         );
-
-        if (
-            PHP_SAPI != 'cli' ||
-            strpos($_SERVER['argv'][0], 'phpunit') === false
-        ) {
-            setcookie(
-                'access_token',
-                $access_token,
-                time() + 60 * 60 * 24 * $this->config->JWT_TTL,
-                '/'
-            );
-        }
-
-        $_COOKIE['access_token'] = $access_token;
 
         return [
             'access_token' => $access_token,
@@ -201,215 +354,4 @@ class simpleauth
         }
     }
 
-    function logout()
-    {
-        if (
-            !isset($_COOKIE['access_token']) ||
-            $_COOKIE['access_token'] == ''
-        ) {
-            return true;
-        }
-        unset($_COOKIE['access_token']);
-        if (
-            PHP_SAPI != 'cli' ||
-            strpos($_SERVER['argv'][0], 'phpunit') === false
-        ) {
-            setcookie('access_token', '', time() - 3600, '/');
-        }
-        return true;
-    }
-
-    function deleteTable()
-    {
-        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->JWT_TABLE);
-        return true;
-    }
-
-    function api()
-    {
-        if (
-            $this->apiRequestMethod() === 'POST' &&
-            $this->apiRequestPath() === 'login'
-        ) {
-            return $this->apiLogin();
-        }
-        if (
-            $this->apiRequestMethod() === 'POST' &&
-            $this->apiRequestPath() === 'refresh'
-        ) {
-            return $this->apiRefresh();
-        }
-        if (
-            $this->apiRequestMethod() === 'POST' &&
-            $this->apiRequestPath() === 'logout'
-        ) {
-            return $this->apiLogout();
-        }
-        if (
-            $this->apiRequestMethod() === 'POST' &&
-            $this->apiRequestPath() === 'check'
-        ) {
-            return $this->apiCheck();
-        }
-        return $this->apiResponse(
-            [
-                'success' => false,
-                'message' => 'unknown route',
-                'public_message' => 'Unbekannte Route!'
-            ],
-            404
-        );
-    }
-
-    private function apiRequestPath()
-    {
-        $path = $_SERVER['REQUEST_URI'];
-        $path = trim($path, '/');
-        $path = substr($path, strrpos($path, '/') + 1);
-        return $path;
-    }
-
-    private function apiRequestMethod()
-    {
-        return $_SERVER['REQUEST_METHOD'];
-    }
-
-    private function apiInput($key)
-    {
-        $p1 = $_POST;
-        $p2 = json_decode(file_get_contents('php://input'), true);
-        if (isset($p1) && !empty($p1) && array_key_exists($key, $p1)) {
-            return $p1[$key];
-        }
-        if (isset($p2) && !empty($p2) && array_key_exists($key, $p2)) {
-            return $p2[$key];
-        }
-        return null;
-    }
-
-    private function apiLogin()
-    {
-        try {
-            $data = $this->login(
-                $this->apiInput('email'),
-                $this->apiInput('password')
-            );
-            return $this->apiResponse(
-                [
-                    'success' => true,
-                    'message' => 'auth successful',
-                    'public_message' => 'Erfolgreich eingeloggt',
-                    'data' => $data
-                ],
-                200
-            );
-        } catch (\Exception $e) {
-            return $this->apiResponse(
-                [
-                    'success' => false,
-                    'message' => 'auth not successful',
-                    'public_message' => 'Nicht erfolgreich'
-                ],
-                401
-            );
-        }
-    }
-
-    private function apiRefresh()
-    {
-        try {
-            $data = $this->refresh(@$_SERVER['HTTP_AUTHORIZATION']);
-            return $this->apiResponse(
-                [
-                    'success' => true,
-                    'message' => 'auth successful',
-                    'public_message' => 'Erfolgreich eingeloggt',
-                    'data' => $data
-                ],
-                200
-            );
-        } catch (\Exception $e) {
-            return $this->apiResponse(
-                [
-                    'success' => false,
-                    'message' => 'invalid token',
-                    'public_message' => 'Falsches Token'
-                ],
-                401
-            );
-        }
-    }
-
-    private function apiLogout()
-    {
-        try {
-            $this->logout();
-            return $this->apiResponse(
-                [
-                    'success' => true,
-                    'message' => 'logout successful',
-                    'public_message' => 'Erfolgreich ausgeloggt'
-                ],
-                200
-            );
-        } catch (\Exception $e) {
-            return $this->apiResponse(
-                [
-                    'success' => false,
-                    'message' => 'logout not successful',
-                    'public_message' => 'Nicht erfolgreich ausgeloggt'
-                ],
-                401
-            );
-        }
-    }
-
-    private function apiCheck()
-    {
-        try {
-            $data = $this->check($this->apiInput('access_token'));
-            return $this->apiResponse(
-                [
-                    'success' => true,
-                    'message' => 'valid token',
-                    'public_message' => 'Korrektes Token',
-                    'data' => $data
-                ],
-                200
-            );
-        } catch (\Exception $e) {
-            return $this->apiResponse(
-                [
-                    'success' => false,
-                    'message' => 'invalid token',
-                    'public_message' => 'Falsches Token'
-                ],
-                401
-            );
-        }
-    }
-
-    private function apiResponse($data, $code = 200)
-    {
-        http_response_code($code);
-        header('Content-Type: application/json');
-        echo json_encode($data);
-        die();
-    }
-
-    public function migrate()
-    {
-        $this->deleteTable();
-        $this->createTable();
-    }
-
-    public function seed()
-    {
-        try {
-            $this->deleteUser('david@vielhuber.de');
-        } catch (\Exception $e) {
-
-        }
-        $this->createUser('david@vielhuber.de', 'secret');
-    }
 }

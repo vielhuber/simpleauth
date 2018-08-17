@@ -74,32 +74,15 @@ the following routes are provided automatically:
 
 ## further usage
 
-you can use the following functions in your own application:
+you can use the following functions inside your own application (they do not need any database lookups):
 
 ```php
 require __DIR__.'/vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
 $auth = new simpleauth(__DIR__.'/.env');
 
-// these two common routes are commonly used inside your application (they do not need any database lookups)
 $auth->isLoggedIn();
 $auth->getCurrentUserId();
-
-/* use the following functions instead of the public auth routes, if you need more fine grained control  */
-
-// table migrations included
-$auth->createTable();
-$auth->deleteTable();
-
-// easy user management
-$auth->createUser($email, $password);
-$auth->deleteUser($email);
-
-// do this before any output (cookies are set)
-$auth->login($email, $password);
-$auth->refresh();
-$auth->logout();
-$auth->check($access_token);
 ```
 
 ## frontend

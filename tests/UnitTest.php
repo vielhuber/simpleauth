@@ -1,67 +1,191 @@
 <?php
 use vielhuber\simpleauth\simpleauth;
+use vielhuber\comparehelper\comparehelper;
+use GuzzleHttp\Client;
 
-class UnitTest extends \PHPUnit\Framework\TestCase
+class ApiTest extends \PHPUnit\Framework\TestCase
 {
-    protected $auth = null;
-
     protected function setUp()
     {
-        $this->auth = new simpleauth(__DIR__.'/../.env');
-        $this->auth->deleteTable();
-        $this->auth->createTable();
+        exec('php auth/index.php migrate');
+        exec('php auth/index.php seed');
     }
 
-    protected function tearDown()
+    function testLogin()
     {
-        $this->auth->deleteTable();
-    }
-
-    function testAll()
-    {
-        $this->assertSame(
-            $this->auth->createUser('david@vielhuber.de', 'secret'),
-            true
-        );
-
-        $this->assertSame(
-            strlen(
-                $this->auth->login('david@vielhuber.de', 'secret')[
-                    'access_token'
+        $this->assertTrue(
+            CompareHelper::compare(
+                $this->request('POST', '/auth/login', [
+                    'email' => 'david@vielhuber.de',
+                    'password' => 'secret'
+                ]),
+                [
+                    'response' => [
+                        'success' => true,
+                        'message' => 'auth successful',
+                        'public_message' => '#STR#',
+                        'data' => '*'
+                    ],
+                    'code' => 200
                 ]
-            ) > 10,
-            true
+            )
         );
+    }
 
-        $this->assertSame(
-            strlen(
-                $this->auth->refresh($_COOKIE['access_token'])['access_token']
-            ) > 10,
-            true
+    function testLoginFailure()
+    {
+        $this->assertTrue(
+            CompareHelper::compare(
+                $this->request('POST', '/auth/login', [
+                    'foo' => 'bar'
+                ]),
+                [
+                    'response' => [
+                        'success' => false,
+                        'message' => 'auth not successful',
+                        'public_message' => '#STR#'
+                    ],
+                    'code' => 401
+                ]
+            )
         );
+    }
 
-        $this->assertSame(
-            $this->auth->check($_COOKIE['access_token'])['user_id'],
-            1
+    function testRefresh()
+    {
+        $access_token = $this->request('POST', '/auth/login', [
+            'email' => 'david@vielhuber.de',
+            'password' => 'secret'
+        ])['response']['data']['access_token'];
+        $this->assertTrue(
+            CompareHelper::compare(
+                $this->request('POST', '/auth/refresh', null, [
+                    'Authorization' => 'Bearer ' . $access_token
+                ]),
+                [
+                    'response' => [
+                        'success' => true,
+                        'message' => 'auth successful',
+                        'public_message' => '#STR#',
+                        'data' => '*'
+                    ],
+                    'code' => 200
+                ]
+            )
         );
+    }
 
-        $this->assertSame($this->auth->isLoggedIn(), true);
+    function testRefreshFailure()
+    {
+        $this->assertTrue(
+            CompareHelper::compare(
+                $this->request('POST', '/auth/refresh', null, [
+                    'Authorization' => 'Bearer foo'
+                ]),
+                [
+                    'response' => [
+                        'success' => false,
+                        'message' => 'invalid token',
+                        'public_message' => '#STR#'
+                    ],
+                    'code' => 401
+                ]
+            )
+        );
+    }
 
-        $this->assertSame($this->auth->getCurrentUserId(), 1);
+    function testLogout()
+    {
+        $access_token = $this->request('POST', '/auth/login', [
+            'email' => 'david@vielhuber.de',
+            'password' => 'secret'
+        ])['response']['data']['access_token'];
+        $this->assertTrue(
+            CompareHelper::compare(
+                $this->request('POST', '/auth/logout', null, [
+                    'Authorization' => 'Bearer ' . $access_token
+                ]),
+                [
+                    'response' => [
+                        'success' => true,
+                        'message' => 'logout successful',
+                        'public_message' => '#STR#'
+                    ],
+                    'code' => 200
+                ]
+            )
+        );
+    }
 
-        $this->assertSame($this->auth->logout(), true);
+    function testCheck()
+    {
+        $access_token = $this->request('POST', '/auth/login', [
+            'email' => 'david@vielhuber.de',
+            'password' => 'secret'
+        ])['response']['data']['access_token'];
+        $this->assertTrue(
+            CompareHelper::compare(
+                $this->request('POST', '/auth/check', [
+                    'access_token' => $access_token
+                ]),
+                [
+                    'response' => [
+                        'success' => true,
+                        'message' => 'valid token',
+                        'public_message' => '#STR#',
+                        'data' => '*'
+                    ],
+                    'code' => 200
+                ]
+            )
+        );
+    }
 
-        $this->assertSame($this->auth->isLoggedIn(), false);
+    function testCheckFailure()
+    {
+        $this->assertTrue(
+            CompareHelper::compare(
+                $this->request('POST', '/auth/check', null, [
+                    'Authorization' => 'Bearer foo'
+                ]),
+                [
+                    'response' => [
+                        'success' => false,
+                        'message' => 'invalid token',
+                        'public_message' => '#STR#'
+                    ],
+                    'code' => 401
+                ]
+            )
+        );
+    }
 
-        $this->assertSame($this->auth->getCurrentUserId(), null);
-
-        $this->assertSame($this->auth->deleteUser('david@vielhuber.de'), true);
-
+    private function request(
+        $method = 'GET',
+        $route = '/',
+        $data = [],
+        $headers = []
+    ) {
+        $client = new Client([
+            'base_uri' => 'http://simpleauth.local'
+        ]);
         try {
-            $this->auth->login('david@vielhuber.de', 'secret');
-            $this->assertSame(true, false);
+            $response = $client->request($method, $route, [
+                'form_params' => $data,
+                'headers' => $headers,
+                'http_errors' => false
+            ]);
+            return [
+                'code' => $response->getStatusCode(),
+                'response' => json_decode(
+                    json_encode(json_decode((string) $response->getBody())),
+                    true
+                )
+            ];
         } catch (\Exception $e) {
-            $this->assertSame(true, true);
+            return [
+                'response' => $e->getMessage()
+            ];
         }
     }
 }
