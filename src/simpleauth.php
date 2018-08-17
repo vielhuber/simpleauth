@@ -106,6 +106,7 @@ class simpleauth
 
     private function apiInput($key)
     {
+        global $_POST;
         $p1 = $_POST;
         $p2 = json_decode(file_get_contents('php://input'), true);
         if (isset($p1) && !empty($p1) && array_key_exists($key, $p1)) {
