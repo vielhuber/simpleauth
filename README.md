@@ -57,6 +57,7 @@ DB_PASSWORD=root
 JWT_TABLE=users
 JWT_TTL=30
 JWT_SECRET=I2hkRtw6t8Yg9Wvlg99Nij23Bvdm0n0L4UPkVC33a7rMo5EQGlnIv79LAOIMIxE
+BASE_URL=http://simpleauth.local.vielhuber.de
 ```
 
 if you want to migrate and seed data, simply run
@@ -66,7 +67,8 @@ php auth/index.php migrate
 php auth/index.php seed
 ```
 
-and you should be done (a test user `david@vielhuber.de` with the password `secret` is created). you can now fully authenticate with the routes below.
+and you should be done (a test user `david@vielhuber.de` with the password `secret` is created).\
+you can now fully authenticate with the routes below.
 
 ## routes
 

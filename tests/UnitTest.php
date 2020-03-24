@@ -165,7 +165,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
     private function request($method = 'GET', $route = '/', $data = [], $headers = [])
     {
         $client = new Client([
-            'base_uri' => getenv('URL')
+            'base_uri' => getenv('BASE_URL')
         ]);
         try {
             $response = $client->request($method, $route, [
