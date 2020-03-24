@@ -1,14 +1,16 @@
 <?php
-use vielhuber\simpleauth\simpleauth;
 use vielhuber\comparehelper\comparehelper;
 use GuzzleHttp\Client;
+use Dotenv\Dotenv;
 
 class ApiTest extends \PHPUnit\Framework\TestCase
 {
     protected function setUp()
     {
-        exec('php auth/index.php migrate');
-        exec('php auth/index.php seed');
+        $dotenv = Dotenv::createImmutable(__DIR__ . '/../');
+        $dotenv->load();
+        shell_exec('php ./auth/index.php migrate');
+        shell_exec('php ./auth/index.php seed');
     }
 
     function testLogin()
@@ -160,14 +162,10 @@ class ApiTest extends \PHPUnit\Framework\TestCase
         );
     }
 
-    private function request(
-        $method = 'GET',
-        $route = '/',
-        $data = [],
-        $headers = []
-    ) {
+    private function request($method = 'GET', $route = '/', $data = [], $headers = [])
+    {
         $client = new Client([
-            'base_uri' => 'http://simpleauth.local'
+            'base_uri' => getenv('URL')
         ]);
         try {
             $response = $client->request($method, $route, [
@@ -177,10 +175,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
             ]);
             return [
                 'code' => $response->getStatusCode(),
-                'response' => json_decode(
-                    json_encode(json_decode((string) $response->getBody())),
-                    true
-                )
+                'response' => json_decode(json_encode(json_decode((string) $response->getBody())), true)
             ];
         } catch (\Exception $e) {
             return [

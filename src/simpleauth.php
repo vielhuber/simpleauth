@@ -8,9 +8,7 @@ use Dotenv\Dotenv;
 // cors
 if (PHP_SAPI != 'cli' || strpos($_SERVER['argv'][0], 'phpunit') === false) {
     header('Access-Control-Allow-Origin: *');
-    header(
-        'Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS'
-    );
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization');
     if (@$_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
         die();
@@ -24,9 +22,20 @@ class simpleauth
 
     function __construct($config)
     {
-        $dotenv = new Dotenv(str_replace(['/.env','.env'],'',$config));
+        $dotenv = Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config));
         $dotenv->load();
-        $this->config = (object) $_ENV;
+        $this->config = (object) [
+            'DB_CONNECTION' => getenv('DB_CONNECTION'),
+            'DB_HOST' => getenv('DB_HOST'),
+            'DB_PORT' => getenv('DB_PORT'),
+            'DB_DATABASE' => getenv('DB_DATABASE'),
+            'DB_USERNAME' => getenv('DB_USERNAME'),
+            'DB_PASSWORD' => getenv('DB_PASSWORD'),
+            'JWT_TABLE' => getenv('JWT_TABLE'),
+            'JWT_TTL' => getenv('JWT_TTL'),
+            'JWT_SECRET' => getenv('JWT_SECRET'),
+            'URL' => getenv('URL')
+        ];
         $this->db = new dbhelper();
         $this->db->connect(
             'pdo',
@@ -41,28 +50,16 @@ class simpleauth
 
     function api()
     {
-        if (
-            $this->apiRequestMethod() === 'POST' &&
-            $this->apiRequestPath() === 'login'
-        ) {
+        if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'login') {
             return $this->apiLogin();
         }
-        if (
-            $this->apiRequestMethod() === 'POST' &&
-            $this->apiRequestPath() === 'refresh'
-        ) {
+        if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'refresh') {
             return $this->apiRefresh();
         }
-        if (
-            $this->apiRequestMethod() === 'POST' &&
-            $this->apiRequestPath() === 'logout'
-        ) {
+        if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'logout') {
             return $this->apiLogout();
         }
-        if (
-            $this->apiRequestMethod() === 'POST' &&
-            $this->apiRequestPath() === 'check'
-        ) {
+        if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'check') {
             return $this->apiCheck();
         }
         return $this->apiResponse(
@@ -86,7 +83,6 @@ class simpleauth
         try {
             $this->deleteUser('david@vielhuber.de');
         } catch (\Exception $e) {
-
         }
         $this->createUser('david@vielhuber.de', 'secret');
     }
@@ -109,20 +105,18 @@ class simpleauth
         $p1 = $_POST;
         $p2 = json_decode(file_get_contents('php://input'), true);
         parse_str(file_get_contents('php://input'), $p3);
-        if( isset($p1) && !empty($p1) && array_key_exists($key, $p1) ) {
+        if (isset($p1) && !empty($p1) && array_key_exists($key, $p1)) {
             return $p1[$key];
         }
-        if( isset($p2) && !empty($p2) && array_key_exists($key, $p2) ) {
+        if (isset($p2) && !empty($p2) && array_key_exists($key, $p2)) {
             return $p2[$key];
-        }        
-        if( isset($p3) && !empty($p3) )
-        {
-            foreach($p3 as $p3__key => $p3__value)
-            {
+        }
+        if (isset($p3) && !empty($p3)) {
+            foreach ($p3 as $p3__key => $p3__value) {
                 unset($p3[$p3__key]);
                 $p3[str_replace('amp;', '', $p3__key)] = $p3__value;
             }
-            if( array_key_exists($key, $p3) ) {
+            if (array_key_exists($key, $p3)) {
                 return $p3[$key];
             }
         }
@@ -137,10 +131,7 @@ class simpleauth
             if ($email == '' || $password == '') {
                 throw new \Exception('email or password missing');
             }
-            $user = $this->db->fetch_row(
-                'SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?',
-                $email
-            );
+            $user = $this->db->fetch_row('SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?', $email);
             if (empty($user) || !password_verify($password, $user['password'])) {
                 throw new \Exception('email or password wrong');
             }
@@ -280,19 +271,12 @@ class simpleauth
     function createUser($email, $password)
     {
         if (
-            $this->db->fetch_var(
-                'SELECT COUNT(id) FROM ' .
-                    $this->config->JWT_TABLE .
-                    ' WHERE email = ?',
-                $email
-            ) > 0
+            $this->db->fetch_var('SELECT COUNT(id) FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?', $email) > 0
         ) {
             throw new \Exception('user already exists');
         }
         $this->db->query(
-            'INSERT INTO ' .
-                $this->config->JWT_TABLE .
-                '(email,password) VALUES(?,?)',
+            'INSERT INTO ' . $this->config->JWT_TABLE . '(email,password) VALUES(?,?)',
             $email,
             password_hash($password, PASSWORD_DEFAULT)
         );
@@ -302,19 +286,11 @@ class simpleauth
     function deleteUser($email)
     {
         if (
-            $this->db->fetch_var(
-                'SELECT COUNT(id) FROM ' .
-                    $this->config->JWT_TABLE .
-                    ' WHERE email = ?',
-                $email
-            ) == 0
+            $this->db->fetch_var('SELECT COUNT(id) FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?', $email) == 0
         ) {
             throw new \Exception('user does not exists');
         }
-        $this->db->query(
-            'DELETE FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?',
-            $email
-        );
+        $this->db->query('DELETE FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?', $email);
         return true;
     }
 
@@ -339,11 +315,7 @@ class simpleauth
     function getUserIdFromAccessToken($access_token)
     {
         try {
-            $data = JWT::decode(
-                str_replace('Bearer ', '', $access_token),
-                $this->config->JWT_SECRET,
-                ['HS256']
-            );
+            $data = JWT::decode(str_replace('Bearer ', '', $access_token), $this->config->JWT_SECRET, ['HS256']);
             return $data->sub;
         } catch (\Exception $e) {
             throw new \Exception('wrong access token');
@@ -363,5 +335,4 @@ class simpleauth
             return null;
         }
     }
-
 }

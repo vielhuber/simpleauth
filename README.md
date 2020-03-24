@@ -19,17 +19,23 @@ composer require vielhuber/simpleauth
 now simply create the following files in a new folder called `auth` in your public directory:
 
 #### /auth/index.php
+
 ```php
 <?php
-require_once __DIR__.'/../vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
-$auth = new simpleauth(__DIR__.'/../.env');
-if (php_sapi_name() !== 'cli') { $auth->api(); }
-elseif(@$argv[1] === 'migrate') { $auth->migrate(); }
-elseif(@$argv[1] === 'seed') { $auth->seed(); }
+$auth = new simpleauth(__DIR__ . '/../.env');
+if (php_sapi_name() !== 'cli') {
+    $auth->api();
+} elseif (@$argv[1] === 'migrate') {
+    $auth->migrate();
+} elseif (@$argv[1] === 'seed') {
+    $auth->seed();
+}
 ```
 
 #### /auth/.htaccess
+
 ```.htaccess
 RewriteEngine on
 RewriteCond %{HTTP:Authorization} ^(.*)
@@ -40,6 +46,7 @@ RewriteRule ^.*$ /auth/index.php [L,QSA]
 ```
 
 #### /.env
+
 ```.env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
@@ -59,7 +66,7 @@ php auth/index.php migrate
 php auth/index.php seed
 ```
 
-and you should be done. you can now fully authenticate with the routes below.
+and you should be done (a test user `david@vielhuber.de` with the password `secret` is created). you can now fully authenticate with the routes below.
 
 ## routes
 
@@ -77,9 +84,9 @@ the following routes are provided automatically:
 you can use the following functions inside your own application (they do not need any database lookups):
 
 ```php
-require __DIR__.'/vendor/autoload.php';
+require __DIR__ . '/vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
-$auth = new simpleauth(__DIR__.'/.env');
+$auth = new simpleauth(__DIR__ . '/.env');
 
 $auth->isLoggedIn();
 $auth->getCurrentUserId();
