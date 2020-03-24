@@ -32,6 +32,7 @@ class simpleauth
             'DB_USERNAME' => getenv('DB_USERNAME'),
             'DB_PASSWORD' => getenv('DB_PASSWORD'),
             'JWT_TABLE' => getenv('JWT_TABLE'),
+            'JWT_LOGIN' => getenv('JWT_LOGIN'),
             'JWT_TTL' => getenv('JWT_TTL'),
             'JWT_SECRET' => getenv('JWT_SECRET'),
             'URL' => getenv('URL')
@@ -126,14 +127,17 @@ class simpleauth
     private function apiLogin()
     {
         try {
-            $email = $this->apiInput('email');
+            $login = $this->apiInput($this->config->JWT_LOGIN);
             $password = $this->apiInput('password');
-            if ($email == '' || $password == '') {
-                throw new \Exception('email or password missing');
+            if ($login == '' || $password == '') {
+                throw new \Exception('login or password missing');
             }
-            $user = $this->db->fetch_row('SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?', $email);
+            $user = $this->db->fetch_row(
+                'SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
+                $login
+            );
             if (empty($user) || !password_verify($password, $user['password'])) {
-                throw new \Exception('email or password wrong');
+                throw new \Exception('login or password wrong');
             }
             $data = $this->createAccessToken($user['id']);
             return $this->apiResponse(
@@ -254,7 +258,9 @@ class simpleauth
                 '
             (
                 id SERIAL PRIMARY KEY,
-                email varchar(100) NOT NULL,
+                ' .
+                $this->config->JWT_LOGIN .
+                ' varchar(100) NOT NULL,
                 password char(255) NOT NULL
             )
         '
@@ -268,29 +274,38 @@ class simpleauth
         return true;
     }
 
-    function createUser($email, $password)
+    function createUser($login, $password)
     {
         if (
-            $this->db->fetch_var('SELECT COUNT(id) FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?', $email) > 0
+            $this->db->fetch_var(
+                'SELECT COUNT(id) FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
+                $login
+            ) > 0
         ) {
             throw new \Exception('user already exists');
         }
         $this->db->query(
-            'INSERT INTO ' . $this->config->JWT_TABLE . '(email,password) VALUES(?,?)',
-            $email,
+            'INSERT INTO ' . $this->config->JWT_TABLE . '(' . $this->config->JWT_LOGIN . ',password) VALUES(?,?)',
+            $login,
             password_hash($password, PASSWORD_DEFAULT)
         );
         return true;
     }
 
-    function deleteUser($email)
+    function deleteUser($login)
     {
         if (
-            $this->db->fetch_var('SELECT COUNT(id) FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?', $email) == 0
+            $this->db->fetch_var(
+                'SELECT COUNT(id) FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
+                $login
+            ) == 0
         ) {
             throw new \Exception('user does not exists');
         }
-        $this->db->query('DELETE FROM ' . $this->config->JWT_TABLE . ' WHERE email = ?', $email);
+        $this->db->query(
+            'DELETE FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
+            $login
+        );
         return true;
     }
 
@@ -329,8 +344,15 @@ class simpleauth
 
     function getCurrentUserId()
     {
+        // this function can be called from within the api (via a rest call) or directly via php
+        $token = null;
+        if (isset($_SERVER['HTTP_AUTHORIZATION']) && $_SERVER['HTTP_AUTHORIZATION'] != '') {
+            $token = $_SERVER['HTTP_AUTHORIZATION'];
+        } elseif (isset($_COOKIE['access_token']) && $_COOKIE['access_token'] != '') {
+            $token = $_COOKIE['access_token'];
+        }
         try {
-            return $this->getUserIdFromAccessToken(@$_SERVER['HTTP_AUTHORIZATION']);
+            return $this->getUserIdFromAccessToken($token);
         } catch (\Exception $e) {
             return null;
         }

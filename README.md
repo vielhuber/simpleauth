@@ -55,6 +55,7 @@ DB_DATABASE=simpleauth
 DB_USERNAME=root
 DB_PASSWORD=root
 JWT_TABLE=users
+JWT_LOGIN=email
 JWT_TTL=30
 JWT_SECRET=I2hkRtw6t8Yg9Wvlg99Nij23Bvdm0n0L4UPkVC33a7rMo5EQGlnIv79LAOIMIxE
 BASE_URL=http://simpleauth.local.vielhuber.de
@@ -68,7 +69,8 @@ php auth/index.php seed
 ```
 
 and you should be done (a test user `david@vielhuber.de` with the password `secret` is created).\
-you can now fully authenticate with the routes below.
+you can now fully authenticate with the routes below.\
+if you want to authenticate via username instead of email, simply change JWT_LOGIN to `username`.
 
 ## routes
 
