@@ -139,7 +139,7 @@ class simpleauth
             if (empty($user) || !password_verify($password, $user['password'])) {
                 throw new \Exception('login or password wrong');
             }
-            $data = $this->createAccessToken($user['id']);
+            $data = $this->createAccessToken($user['id'], $user[$this->config->JWT_LOGIN]);
             return $this->apiResponse(
                 [
                     'success' => true,
@@ -165,7 +165,8 @@ class simpleauth
     {
         try {
             $user_id = $this->getUserIdFromAccessToken(@$_SERVER['HTTP_AUTHORIZATION']);
-            $data = $this->createAccessToken($user_id);
+            $user_login = $this->getUserLoginFromAccessToken(@$_SERVER['HTTP_AUTHORIZATION']);
+            $data = $this->createAccessToken($user_id, $user_login);
             return $this->apiResponse(
                 [
                     'success' => true,
@@ -309,13 +310,14 @@ class simpleauth
         return true;
     }
 
-    private function createAccessToken($user_id)
+    private function createAccessToken($user_id, $user_login)
     {
         $access_token = JWT::encode(
             [
                 'iss' => $_SERVER['HTTP_HOST'], // issuer
                 'exp' => time() + 60 * 60 * 24 * $this->config->JWT_TTL, // ttl
-                'sub' => $user_id
+                'sub' => $user_id,
+                'login' => $user_login
             ],
             $this->config->JWT_SECRET
         );
@@ -332,6 +334,16 @@ class simpleauth
         try {
             $data = JWT::decode(str_replace('Bearer ', '', $access_token), $this->config->JWT_SECRET, ['HS256']);
             return $data->sub;
+        } catch (\Exception $e) {
+            throw new \Exception('wrong access token');
+        }
+    }
+
+    function getUserLoginFromAccessToken($access_token)
+    {
+        try {
+            $data = JWT::decode(str_replace('Bearer ', '', $access_token), $this->config->JWT_SECRET, ['HS256']);
+            return $data->login;
         } catch (\Exception $e) {
             throw new \Exception('wrong access token');
         }
