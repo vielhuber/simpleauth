@@ -24,16 +24,16 @@ class simpleauth
         $dotenv = \Dotenv\Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config));
         $dotenv->load();
         $this->config = (object) [
-            'DB_CONNECTION' => $_SERVER['DB_CONNECTION'],
-            'DB_HOST' => $_SERVER['DB_HOST'],
-            'DB_PORT' => $_SERVER['DB_PORT'],
-            'DB_DATABASE' => $_SERVER['DB_DATABASE'],
-            'DB_USERNAME' => $_SERVER['DB_USERNAME'],
-            'DB_PASSWORD' => $_SERVER['DB_PASSWORD'],
-            'JWT_TABLE' => $_SERVER['JWT_TABLE'],
-            'JWT_LOGIN' => $_SERVER['JWT_LOGIN'],
-            'JWT_TTL' => $_SERVER['JWT_TTL'],
-            'JWT_SECRET' => $_SERVER['JWT_SECRET'],
+            'DB_CONNECTION' => @$_SERVER['DB_CONNECTION'],
+            'DB_HOST' => @$_SERVER['DB_HOST'],
+            'DB_PORT' => @$_SERVER['DB_PORT'],
+            'DB_DATABASE' => @$_SERVER['DB_DATABASE'],
+            'DB_USERNAME' => @$_SERVER['DB_USERNAME'],
+            'DB_PASSWORD' => @$_SERVER['DB_PASSWORD'],
+            'JWT_TABLE' => @$_SERVER['JWT_TABLE'],
+            'JWT_LOGIN' => @$_SERVER['JWT_LOGIN'],
+            'JWT_TTL' => @$_SERVER['JWT_TTL'],
+            'JWT_SECRET' => @$_SERVER['JWT_SECRET'],
         ];
         $this->db = new dbhelper();
         $this->db->connect(
@@ -88,7 +88,7 @@ class simpleauth
 
     private function apiRequestPath()
     {
-        $path = $_SERVER['REQUEST_URI'];
+        $path = @$_SERVER['REQUEST_URI'];
         $path = trim($path, '/');
         $path = substr($path, strrpos($path, '/') + 1);
         return $path;
@@ -96,7 +96,7 @@ class simpleauth
 
     private function apiRequestMethod()
     {
-        return $_SERVER['REQUEST_METHOD'];
+        return @$_SERVER['REQUEST_METHOD'];
     }
 
     private function apiInput($key)
@@ -312,7 +312,7 @@ class simpleauth
     {
         $access_token = JWT::encode(
             [
-                'iss' => $_SERVER['HTTP_HOST'], // issuer
+                'iss' => @$_SERVER['HTTP_HOST'], // issuer
                 'exp' => time() + 60 * 60 * 24 * $this->config->JWT_TTL, // ttl
                 'sub' => $user_id,
                 'login' => $user_login,
