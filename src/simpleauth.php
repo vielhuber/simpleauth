@@ -3,7 +3,6 @@ namespace vielhuber\simpleauth;
 
 use vielhuber\dbhelper\dbhelper;
 use Firebase\JWT\JWT;
-use Dotenv\Dotenv;
 
 // cors
 if (PHP_SAPI != 'cli' || strpos($_SERVER['argv'][0], 'phpunit') === false) {
@@ -22,20 +21,19 @@ class simpleauth
 
     function __construct($config)
     {
-        $dotenv = Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config));
+        $dotenv = \Dotenv\Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config));
         $dotenv->load();
         $this->config = (object) [
-            'DB_CONNECTION' => getenv('DB_CONNECTION'),
-            'DB_HOST' => getenv('DB_HOST'),
-            'DB_PORT' => getenv('DB_PORT'),
-            'DB_DATABASE' => getenv('DB_DATABASE'),
-            'DB_USERNAME' => getenv('DB_USERNAME'),
-            'DB_PASSWORD' => getenv('DB_PASSWORD'),
-            'JWT_TABLE' => getenv('JWT_TABLE'),
-            'JWT_LOGIN' => getenv('JWT_LOGIN'),
-            'JWT_TTL' => getenv('JWT_TTL'),
-            'JWT_SECRET' => getenv('JWT_SECRET'),
-            'URL' => getenv('URL')
+            'DB_CONNECTION' => $_SERVER['DB_CONNECTION'],
+            'DB_HOST' => $_SERVER['DB_HOST'],
+            'DB_PORT' => $_SERVER['DB_PORT'],
+            'DB_DATABASE' => $_SERVER['DB_DATABASE'],
+            'DB_USERNAME' => $_SERVER['DB_USERNAME'],
+            'DB_PASSWORD' => $_SERVER['DB_PASSWORD'],
+            'JWT_TABLE' => $_SERVER['JWT_TABLE'],
+            'JWT_LOGIN' => $_SERVER['JWT_LOGIN'],
+            'JWT_TTL' => $_SERVER['JWT_TTL'],
+            'JWT_SECRET' => $_SERVER['JWT_SECRET'],
         ];
         $this->db = new dbhelper();
         $this->db->connect(
@@ -67,7 +65,7 @@ class simpleauth
             [
                 'success' => false,
                 'message' => 'unknown route',
-                'public_message' => 'Unbekannte Route!'
+                'public_message' => 'Unbekannte Route!',
             ],
             404
         );
@@ -145,7 +143,7 @@ class simpleauth
                     'success' => true,
                     'message' => 'auth successful',
                     'public_message' => 'Erfolgreich eingeloggt',
-                    'data' => $data
+                    'data' => $data,
                 ],
                 200
             );
@@ -154,7 +152,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'auth not successful',
-                    'public_message' => 'Nicht erfolgreich'
+                    'public_message' => 'Nicht erfolgreich',
                 ],
                 401
             );
@@ -172,7 +170,7 @@ class simpleauth
                     'success' => true,
                     'message' => 'auth successful',
                     'public_message' => 'Erfolgreich eingeloggt',
-                    'data' => $data
+                    'data' => $data,
                 ],
                 200
             );
@@ -181,7 +179,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'invalid token',
-                    'public_message' => 'Falsches Token'
+                    'public_message' => 'Falsches Token',
                 ],
                 401
             );
@@ -196,7 +194,7 @@ class simpleauth
                 [
                     'success' => true,
                     'message' => 'logout successful',
-                    'public_message' => 'Erfolgreich ausgeloggt'
+                    'public_message' => 'Erfolgreich ausgeloggt',
                 ],
                 200
             );
@@ -205,7 +203,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'logout not successful',
-                    'public_message' => 'Nicht erfolgreich ausgeloggt'
+                    'public_message' => 'Nicht erfolgreich ausgeloggt',
                 ],
                 401
             );
@@ -225,8 +223,8 @@ class simpleauth
                     'data' => [
                         'access_token' => $access_token,
                         'expires_in' => $this->config->JWT_TTL,
-                        'user_id' => $user_id
-                    ]
+                        'user_id' => $user_id,
+                    ],
                 ],
                 200
             );
@@ -235,7 +233,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'invalid token',
-                    'public_message' => 'Falsches Token'
+                    'public_message' => 'Falsches Token',
                 ],
                 401
             );
@@ -317,7 +315,7 @@ class simpleauth
                 'iss' => $_SERVER['HTTP_HOST'], // issuer
                 'exp' => time() + 60 * 60 * 24 * $this->config->JWT_TTL, // ttl
                 'sub' => $user_id,
-                'login' => $user_login
+                'login' => $user_login,
             ],
             $this->config->JWT_SECRET
         );
@@ -325,7 +323,7 @@ class simpleauth
         return [
             'access_token' => $access_token,
             'expires_in' => $this->config->JWT_TTL,
-            'user_id' => $user_id
+            'user_id' => $user_id,
         ];
     }
 

@@ -98,4 +98,4 @@ $auth->getCurrentUserId();
 
 ## frontend
 
-if you need a neat frontend library that works together with simpleauth seemlessly, try out [jtwbutler](https://github.com/vielhuber/jwtbutler).
+if you need a neat frontend library that works together with simpleauth seemlessly, try out [jwtbutler](https://github.com/vielhuber/jwtbutler).

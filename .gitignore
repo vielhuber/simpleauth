@@ -1,4 +1,6 @@
 /.idea/
-composer.lock
+/composer.lock
+/package-lock.json
+/node_modules/
 /vendor/
 /auth/.env
