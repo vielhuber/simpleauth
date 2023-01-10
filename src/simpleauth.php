@@ -36,7 +36,7 @@ class simpleauth
             'JWT_SECRET' => @$_SERVER['JWT_SECRET'],
         ];
         $this->db = new dbhelper();
-        $this->db->connect(
+        $this->db->connect_with_create(
             'pdo',
             $this->config->DB_CONNECTION,
             $this->config->DB_HOST,
@@ -330,7 +330,7 @@ class simpleauth
     function getUserIdFromAccessToken($access_token)
     {
         try {
-            $data = JWT::decode(str_replace('Bearer ', '', $access_token), $this->config->JWT_SECRET, ['HS256']);
+            $data = JWT::decode(str_replace('Bearer ', '', $access_token ?? ''), $this->config->JWT_SECRET, ['HS256']);
             return $data->sub;
         } catch (\Exception $e) {
             throw new \Exception('wrong access token');
@@ -340,7 +340,7 @@ class simpleauth
     function getUserLoginFromAccessToken($access_token)
     {
         try {
-            $data = JWT::decode(str_replace('Bearer ', '', $access_token), $this->config->JWT_SECRET, ['HS256']);
+            $data = JWT::decode(str_replace('Bearer ', '', $access_token ?? ''), $this->config->JWT_SECRET, ['HS256']);
             return $data->login;
         } catch (\Exception $e) {
             throw new \Exception('wrong access token');
