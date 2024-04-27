@@ -4,6 +4,8 @@ namespace vielhuber\simpleauth;
 use vielhuber\dbhelper\dbhelper;
 use Firebase\JWT\JWT;
 
+require_once __DIR__ . '/../../../../app/functions/cache_functions.php';
+
 // cors
 if (PHP_SAPI != 'cli' || strpos($_SERVER['argv'][0], 'phpunit') === false) {
     header('Access-Control-Allow-Origin: *');
@@ -60,6 +62,9 @@ class simpleauth
         }
         if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'check') {
             return $this->apiCheck();
+        }
+        if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'register') {
+            return $this->apiRegister();
         }
         return $this->apiResponse(
             [
@@ -128,7 +133,7 @@ class simpleauth
             $login = $this->apiInput($this->config->JWT_LOGIN);
             $password = $this->apiInput('password');
             if ($login == '' || $password == '') {
-                throw new \Exception('login or password missing');
+                throw new \Exception('login or password missing');  
             }
             $user = $this->db->fetch_row(
                 'SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
@@ -138,11 +143,26 @@ class simpleauth
                 throw new \Exception('login or password wrong');
             }
             $data = $this->createAccessToken($user['id'], $user[$this->config->JWT_LOGIN]);
+
+            setcookie("access_token", $data['access_token'], [
+                'expires' => time() + 60 * 60 * 24 * 30,                             // 30 day from now
+                'path' => '/',
+                'secure' => true,                                               // Set to true if you're using HTTPS
+                'httponly' => true,                                             // Set to true to make the cookie accessible only through the HTTP protocol
+                'samesite' => 'Lax'                                             // Helps prevent CSRF attacks
+            ]);
+
+            setcookie("auth", "logged", [
+                'expires' => time() + 60 * 60 * 24 * 30,                             // 30 day from now
+                'path' => '/',
+                'secure' => true,                                               // Set to true if you're using HTTPS
+            ]);
+
             return $this->apiResponse(
                 [
                     'success' => true,
                     'message' => 'auth successful',
-                    'public_message' => 'Erfolgreich eingeloggt',
+                    'public_message' => 'Welcome',
                     'data' => $data,
                 ],
                 200
@@ -152,7 +172,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'auth not successful',
-                    'public_message' => 'Nicht erfolgreich',
+                    'public_message' => 'Mmm something\'s wrong',
                 ],
                 401
             );
@@ -189,12 +209,27 @@ class simpleauth
     private function apiLogout()
     {
         try {
-            // nothing happens :-)
+            if (isset($_COOKIE['access_token'])) {
+                setcookie('access_token', '', [                                 // Invalidate the cookie
+                    'expires' => time() - 3600,                                 // Set the expiration date to one hour ago
+                    'path' => '/',
+                    'secure' => true,            
+                    'httponly' => true,          
+                    'samesite' => 'Lax'          
+                ]);
+            }
+            if (isset($_COOKIE['auth'])) {
+                setcookie("auth", "logged", [
+                    'expires' => time() -3600,                             
+                    'path' => '/',
+                    'secure' => true,                                               
+                ]);
+            }
             return $this->apiResponse(
                 [
                     'success' => true,
                     'message' => 'logout successful',
-                    'public_message' => 'Erfolgreich ausgeloggt',
+                    'public_message' => 'logout successful',
                 ],
                 200
             );
@@ -203,7 +238,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'logout not successful',
-                    'public_message' => 'Nicht erfolgreich ausgeloggt',
+                    'public_message' => 'logout not successful',
                 ],
                 401
             );
@@ -236,6 +271,45 @@ class simpleauth
                     'public_message' => 'Falsches Token',
                 ],
                 401
+            );
+        }
+    }
+
+    private function apiRegister()
+    {
+        try {
+            // Check rate limit first
+            if (isRegistrationRateLimitExceeded()) {                                        
+                throw new \Exception('Too many registration attempts. Please try again later.');
+            }
+
+            $login = $this->apiInput('email');                    // Assuming JWT_LOGIN is set to 'email'
+            $password = $this->apiInput('password');
+            
+            // Basic validation
+            if (empty($login) || empty($password)) {
+                throw new \Exception('Email and password are required');
+            }
+            
+            // Attempt to create the user
+            $this->createUser($login, $password);
+            
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'User registered successfully',
+                    'public_message' => 'Registration successful',
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'Registration failed',
+                    'public_message' => $e->getMessage(),
+                ],
+                400 
             );
         }
     }
@@ -327,15 +401,39 @@ class simpleauth
         ];
     }
 
-    function getUserIdFromAccessToken($access_token)
+    function getUserIdFromAccessToken($access_token = null)
     {
+        // Fallback to checking the cookie if no token provided
+        if ($access_token === null && isset($_COOKIE['access_token'])) {
+            $access_token = $_COOKIE['access_token'];
+        }
+        
+        // Now handle the case where no token could be retrieved at all
+        if ($access_token === null) {
+            throw new \Exception('No access token provided');
+        }
+
         try {
-            $data = JWT::decode(str_replace('Bearer ', '', $access_token ?? ''), $this->config->JWT_SECRET, ['HS256']);
-            return $data->sub;
+            // Assume token does not start with 'Bearer ' since it's from a cookie
+            $data = JWT::decode($access_token, $this->config->JWT_SECRET, ['HS256']);
+            return $data->sub;  // 'sub' is typically the user ID
         } catch (\Exception $e) {
             throw new \Exception('wrong access token');
         }
     }
+
+    /**
+     * Original function
+     */
+    // function getUserIdFromAccessToken($access_token)
+    // {
+    //     try {
+    //         $data = JWT::decode(str_replace('Bearer ', '', $access_token ?? ''), $this->config->JWT_SECRET, ['HS256']);
+    //         return $data->sub;
+    //     } catch (\Exception $e) {
+    //         throw new \Exception('wrong access token');
+    //     }
+    // }
 
     function getUserLoginFromAccessToken($access_token)
     {
@@ -367,4 +465,5 @@ class simpleauth
             return null;
         }
     }
+
 }
