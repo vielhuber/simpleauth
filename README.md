@@ -58,7 +58,7 @@ JWT_TABLE=users
 JWT_LOGIN=email
 JWT_TTL=30
 JWT_SECRET=I2hkRtw6t8Yg9Wvlg99Nij23Bvdm0n0L4UPkVC33a7rMo5EQGlnIv79LAOIMIxE
-BASE_URL=http://simpleauth.local.vielhuber.de
+BASE_URL=http://simpleauth.vielhuber.dev
 ```
 
 if you want to migrate and seed data, simply run
