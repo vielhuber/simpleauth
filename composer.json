@@ -4,7 +4,7 @@
     "require": {
         "php": ">=7.4",
         "vielhuber/dbhelper": ">=1.8",
-        "firebase/php-jwt": "^5.0",
+        "firebase/php-jwt": "^6.0",
         "vielhuber/comparehelper": ">=1.0",
         "guzzlehttp/guzzle": "^6.3",
         "vlucas/phpdotenv": "*"
