@@ -48,6 +48,26 @@ class simpleauth
         );
     }
 
+    function init()
+    {
+        global $argv;
+        if (php_sapi_name() !== 'cli') {
+            $this->api();
+        } elseif (!empty($argv) && isset($argv[1]) && $argv[1] === 'migrate') {
+            $this->migrate();
+        } elseif (
+            !empty($argv) &&
+            isset($argv[1]) &&
+            $argv[1] === 'create' &&
+            isset($argv[2]) &&
+            $argv[2] !== '' &&
+            isset($argv[1]) &&
+            $argv[3] !== ''
+        ) {
+            $this->create($argv[2], $argv[3]);
+        }
+    }
+
     function api()
     {
         if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'login') {
@@ -78,13 +98,13 @@ class simpleauth
         $this->createTable();
     }
 
-    function seed()
+    function create($username, $password)
     {
         try {
-            $this->deleteUser('david@vielhuber.de');
+            $this->deleteUser($username);
         } catch (\Exception $e) {
         }
-        $this->createUser('david@vielhuber.de', 'secret');
+        $this->createUser($username, $password);
     }
 
     private function apiRequestPath()

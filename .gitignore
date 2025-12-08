@@ -5,3 +5,4 @@
 /vendor/
 /auth/.env
 /.phpunit.result.cache
+/.env

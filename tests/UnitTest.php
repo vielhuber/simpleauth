@@ -9,7 +9,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
         $dotenv = \Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
         $dotenv->load();
         shell_exec('php ./auth/index.php migrate');
-        shell_exec('php ./auth/index.php seed');
+        shell_exec('php ./auth/index.php create david@vielhuber.de secret');
     }
 
     function testLogin()
@@ -18,16 +18,16 @@ class ApiTest extends \PHPUnit\Framework\TestCase
             CompareHelper::compare(
                 $this->request('POST', '/auth/login', [
                     @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
-                    'password' => 'secret',
+                    'password' => 'secret'
                 ]),
                 [
                     'response' => [
                         'success' => true,
                         'message' => 'auth successful',
                         'public_message' => '#STR#',
-                        'data' => '*',
+                        'data' => '*'
                     ],
-                    'code' => 200,
+                    'code' => 200
                 ]
             )
         );
@@ -38,15 +38,15 @@ class ApiTest extends \PHPUnit\Framework\TestCase
         $this->assertTrue(
             CompareHelper::compare(
                 $this->request('POST', '/auth/login', [
-                    'foo' => 'bar',
+                    'foo' => 'bar'
                 ]),
                 [
                     'response' => [
                         'success' => false,
                         'message' => 'auth not successful',
-                        'public_message' => '#STR#',
+                        'public_message' => '#STR#'
                     ],
-                    'code' => 401,
+                    'code' => 401
                 ]
             )
         );
@@ -56,21 +56,21 @@ class ApiTest extends \PHPUnit\Framework\TestCase
     {
         $access_token = $this->request('POST', '/auth/login', [
             @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
-            'password' => 'secret',
+            'password' => 'secret'
         ])['response']['data']['access_token'];
         $this->assertTrue(
             CompareHelper::compare(
                 $this->request('POST', '/auth/refresh', null, [
-                    'Authorization' => 'Bearer ' . $access_token,
+                    'Authorization' => 'Bearer ' . $access_token
                 ]),
                 [
                     'response' => [
                         'success' => true,
                         'message' => 'auth successful',
                         'public_message' => '#STR#',
-                        'data' => '*',
+                        'data' => '*'
                     ],
-                    'code' => 200,
+                    'code' => 200
                 ]
             )
         );
@@ -81,15 +81,15 @@ class ApiTest extends \PHPUnit\Framework\TestCase
         $this->assertTrue(
             CompareHelper::compare(
                 $this->request('POST', '/auth/refresh', null, [
-                    'Authorization' => 'Bearer foo',
+                    'Authorization' => 'Bearer foo'
                 ]),
                 [
                     'response' => [
                         'success' => false,
                         'message' => 'invalid token',
-                        'public_message' => '#STR#',
+                        'public_message' => '#STR#'
                     ],
-                    'code' => 401,
+                    'code' => 401
                 ]
             )
         );
@@ -99,20 +99,20 @@ class ApiTest extends \PHPUnit\Framework\TestCase
     {
         $access_token = $this->request('POST', '/auth/login', [
             @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
-            'password' => 'secret',
+            'password' => 'secret'
         ])['response']['data']['access_token'];
         $this->assertTrue(
             CompareHelper::compare(
                 $this->request('POST', '/auth/logout', null, [
-                    'Authorization' => 'Bearer ' . $access_token,
+                    'Authorization' => 'Bearer ' . $access_token
                 ]),
                 [
                     'response' => [
                         'success' => true,
                         'message' => 'logout successful',
-                        'public_message' => '#STR#',
+                        'public_message' => '#STR#'
                     ],
-                    'code' => 200,
+                    'code' => 200
                 ]
             )
         );
@@ -122,21 +122,21 @@ class ApiTest extends \PHPUnit\Framework\TestCase
     {
         $access_token = $this->request('POST', '/auth/login', [
             @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
-            'password' => 'secret',
+            'password' => 'secret'
         ])['response']['data']['access_token'];
         $this->assertTrue(
             CompareHelper::compare(
                 $this->request('POST', '/auth/check', [
-                    'access_token' => $access_token,
+                    'access_token' => $access_token
                 ]),
                 [
                     'response' => [
                         'success' => true,
                         'message' => 'valid token',
                         'public_message' => '#STR#',
-                        'data' => '*',
+                        'data' => '*'
                     ],
-                    'code' => 200,
+                    'code' => 200
                 ]
             )
         );
@@ -147,15 +147,15 @@ class ApiTest extends \PHPUnit\Framework\TestCase
         $this->assertTrue(
             CompareHelper::compare(
                 $this->request('POST', '/auth/check', null, [
-                    'Authorization' => 'Bearer foo',
+                    'Authorization' => 'Bearer foo'
                 ]),
                 [
                     'response' => [
                         'success' => false,
                         'message' => 'invalid token',
-                        'public_message' => '#STR#',
+                        'public_message' => '#STR#'
                     ],
-                    'code' => 401,
+                    'code' => 401
                 ]
             )
         );
@@ -164,21 +164,21 @@ class ApiTest extends \PHPUnit\Framework\TestCase
     private function request($method = 'GET', $route = '/', $data = [], $headers = [])
     {
         $client = new Client([
-            'base_uri' => @$_SERVER['BASE_URL'],
+            'base_uri' => @$_SERVER['BASE_URL']
         ]);
         try {
             $response = $client->request($method, $route, [
                 'form_params' => $data,
                 'headers' => $headers,
-                'http_errors' => false,
+                'http_errors' => false
             ]);
             return [
                 'code' => $response->getStatusCode(),
-                'response' => json_decode(json_encode(json_decode((string) $response->getBody())), true),
+                'response' => json_decode(json_encode(json_decode((string) $response->getBody())), true)
             ];
         } catch (\Exception $e) {
             return [
-                'response' => $e->getMessage(),
+                'response' => $e->getMessage()
             ];
         }
     }

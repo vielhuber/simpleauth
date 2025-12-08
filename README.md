@@ -1,12 +1,14 @@
+[![build status](https://github.com/vielhuber/simpleauth/actions/workflows/ci.yml/badge.svg)](https://github.com/vielhuber/simpleauth/actions)
+
 # 🔒 simpleauth 🔒
 
 simpleauth is a simple php based authentication library.
 
 it leverages:
 
--   json web tokens
--   bcrypted passwords
--   full api
+- json web tokens
+- bcrypted passwords
+- full api
 
 ## installation
 
@@ -16,7 +18,7 @@ install once with composer:
 composer require vielhuber/simpleauth
 ```
 
-now simply create the following files in a new folder called `auth` in your public directory:
+now simply create the following files in a new folder called `auth` inside your public directory:
 
 #### /auth/index.php
 
@@ -25,13 +27,8 @@ now simply create the following files in a new folder called `auth` in your publ
 require_once __DIR__ . '/../vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
 $auth = new simpleauth(__DIR__ . '/../.env');
-if (php_sapi_name() !== 'cli') {
-    $auth->api();
-} elseif (@$argv[1] === 'migrate') {
-    $auth->migrate();
-} elseif (@$argv[1] === 'seed') {
-    $auth->seed();
-}
+
+$auth->init();
 ```
 
 #### /auth/.htaccess
@@ -42,7 +39,7 @@ RewriteCond %{HTTP:Authorization} ^(.*)
 RewriteRule .* - [e=HTTP_AUTHORIZATION:%1]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^.*$ /index.php [L,QSA]
+RewriteRule ^.*$ /auth/index.php [L,QSA]
 ```
 
 #### /.env
@@ -57,15 +54,15 @@ DB_PASSWORD=root
 JWT_TABLE=users
 JWT_LOGIN=email
 JWT_TTL=30
-JWT_SECRET=I2hkRtw6t8Yg9Wvlg99Nij23Bvdm0n0L4UPkVC33a7rMo5EQGlnIv79LAOIMIxE
-BASE_URL=http://simpleauth.vielhuber.dev
+JWT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+BASE_URL=https://simpleauth.vielhuber.dev
 ```
 
 if you want to migrate and seed data, simply run
 
 ```sh
 php auth/index.php migrate
-php auth/index.php seed
+php auth/index.php create "david@vielhuber.de" "secret"
 ```
 
 and you should be done (a test user `david@vielhuber.de` with the password `secret` is created).\
