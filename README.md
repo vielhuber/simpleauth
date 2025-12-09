@@ -55,7 +55,6 @@ JWT_TABLE=users
 JWT_LOGIN=email
 JWT_TTL=30
 JWT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-BASE_URL=https://simpleauth.vielhuber.dev
 ```
 
 if you want to migrate and seed data, simply run
@@ -79,6 +78,13 @@ the following routes are provided automatically:
 | /auth/refresh | POST   | --             | Authorization: Bearer token | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
 | /auth/logout  | POST   | --             | Authorization: Bearer token | `([ 'success' => true, 'message' => 'logout successful', 'public_message' => '...' ], 200)`                                                                             |
 | /auth/check   | POST   | access_token   | --                          | `([ 'success' => true, 'message' => 'valid token', 'public_message' => '...', 'data' => [ 'expires_in' => 3600, 'user_id' => 42, 'client_id' => 7000000 ] ], 200)`      |
+
+## tests
+
+```sh
+php -S localhost:8000 -t auth
+./vendor/bin/phpunit
+```
 
 ## further usage
 
