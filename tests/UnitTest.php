@@ -7,7 +7,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
     protected function setUp(): void
     {
         $dotenv = \Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
-        $dotenv->safeLoad();
+        $dotenv->load();
         shell_exec('php ./auth/index.php migrate');
         shell_exec('php ./auth/index.php create david@vielhuber.de secret');
     }

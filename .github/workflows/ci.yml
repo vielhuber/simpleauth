@@ -85,5 +85,16 @@ jobs:
               run: php -S localhost:8000 -t auth > /tmp/php-server.log 2>&1 &
               shell: bash
 
+            - name: Wait for server
+              run: sleep 2
+              shell: bash
+
             - name: PHP Tests
               run: ./vendor/bin/phpunit
+
+            - name: Show server logs
+              if: always()
+              run: |
+                  echo "=== PHP Server Logs ==="
+                  cat /tmp/php-server.log || echo "No server log found"
+              shell: bash
