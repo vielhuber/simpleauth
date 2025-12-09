@@ -62,24 +62,12 @@ jobs:
                   mysql-version: '8.0'
                   root-password: 'root'
 
+            - name: Create Database
+              run: mysql -h 127.0.0.1 -u root -proot -e "CREATE DATABASE IF NOT EXISTS ${{ secrets.DB_DATABASE }};"
+              shell: bash
+
             - name: Install Composer
               run: composer install --no-interaction
-
-            - name: Create .env file (if needed)
-              run: |
-                  cat > .env << EOF
-                  DB_CONNECTION=${{ secrets.DB_CONNECTION }}
-                  DB_HOST=${{ secrets.DB_HOST }}
-                  DB_PORT=${{ secrets.DB_PORT }}
-                  DB_DATABASE=${{ secrets.DB_DATABASE }}
-                  DB_USERNAME=${{ secrets.DB_USERNAME }}
-                  DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-                  JWT_TABLE=${{ secrets.JWT_TABLE }}
-                  JWT_LOGIN=${{ secrets.JWT_LOGIN }}
-                  JWT_TTL=${{ secrets.JWT_TTL }}
-                  JWT_SECRET=${{ secrets.JWT_SECRET }}
-                  EOF
-              shell: bash
 
             - name: Start PHP Server
               run: php -S localhost:8000 -t auth > /tmp/php-server.log 2>&1 &
