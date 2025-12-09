@@ -24,7 +24,7 @@ class simpleauth
     {
         $dotenv = \Dotenv\Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config));
         $dotenv->load();
-        print_r($_SERVER);
+        error_log("=== SERVER VARS ===\n" . print_r($_SERVER, true));
         $this->config = (object) [
             'DB_CONNECTION' => @$_SERVER['DB_CONNECTION'],
             'DB_HOST' => @$_SERVER['DB_HOST'],
