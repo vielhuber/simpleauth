@@ -44,7 +44,8 @@ RewriteRule ^.*$ /auth/index.php [L,QSA]
 
 #### /.env
 
-create a jwt secret (for example with `openssl rand -base64 64 | tr -d '\n' | xclip -selection clipboard`) and create an `.env` file:
+create a jwt secret (`openssl rand -base64 64 | tr -d '\n' | xclip -selection clipboard`)\
+and populate an `.env` file:
 
 ```.env
 DB_CONNECTION=mysql
