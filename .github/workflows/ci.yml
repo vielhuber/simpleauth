@@ -57,13 +57,15 @@ jobs:
                   tools: composer, phpunit
 
             - name: Install MySQL
-              run: |
-                  sudo systemctl start mysql.service
+              uses: shogo82148/actions-setup-mysql@v1
+              with:
+                  mysql-version: '8.0'
+                  root-password: 'root'
 
             - name: Install Composer
               run: composer install --no-interaction
 
-            - name: Create .env file
+            - name: Create .env file if needed
               run: |
                   cat > .env << EOF
                   DB_CONNECTION=${{ secrets.DB_CONNECTION }}
