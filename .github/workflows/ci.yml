@@ -52,7 +52,7 @@ jobs:
               uses: shivammathur/setup-php@v2
               with:
                   php-version: '${{ matrix.php-versions }}'
-                  extensions: fileinfo, mysqli, xdebug, mbstring, xmlrpc, gd, intl, xml, zip, soap, bcmath, imap, opcache, pgsql, pdo, imagick
+                  extensions: fileinfo, mysqli, pdo_mysql, xdebug, mbstring, xmlrpc, gd, intl, xml, zip, soap, bcmath, imap, opcache, pgsql, pdo, imagick
                   tools: composer, phpunit
 
             - name: Install MySQL
