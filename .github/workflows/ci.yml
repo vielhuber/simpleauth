@@ -62,6 +62,10 @@ jobs:
                   mysql-version: '8.0'
                   root-password: 'root'
 
+            - name: Create Database
+              run: mysql -u root -proot -e "CREATE DATABASE IF NOT EXISTS simpleauth;"
+              shell: bash
+
             - name: Install Composer
               run: composer install --no-interaction
 
