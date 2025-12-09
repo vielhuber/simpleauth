@@ -14,41 +14,37 @@ class ApiTest extends \PHPUnit\Framework\TestCase
 
     function testLogin()
     {
-        $this->assertTrue(
-            CompareHelper::compare(
-                $this->request('POST', '/auth/login', [
-                    @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
-                    'password' => 'secret'
-                ]),
-                [
-                    'response' => [
-                        'success' => true,
-                        'message' => 'auth successful',
-                        'public_message' => '#STR#',
-                        'data' => '*'
-                    ],
-                    'code' => 200
-                ]
-            )
+        CompareHelper::assertEquals(
+            $this->request('POST', '/auth/login', [
+                @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
+                'password' => 'secret'
+            ]),
+            [
+                'response' => [
+                    'success' => true,
+                    'message' => 'auth successful',
+                    'public_message' => '#STR#',
+                    'data' => '*'
+                ],
+                'code' => 200
+            ]
         );
     }
 
     function testLoginFailure()
     {
-        $this->assertTrue(
-            CompareHelper::compare(
-                $this->request('POST', '/auth/login', [
-                    'foo' => 'bar'
-                ]),
-                [
-                    'response' => [
-                        'success' => false,
-                        'message' => 'auth not successful',
-                        'public_message' => '#STR#'
-                    ],
-                    'code' => 401
-                ]
-            )
+        CompareHelper::assertEquals(
+            $this->request('POST', '/auth/login', [
+                'foo' => 'bar'
+            ]),
+            [
+                'response' => [
+                    'success' => false,
+                    'message' => 'auth not successful',
+                    'public_message' => '#STR#'
+                ],
+                'code' => 401
+            ]
         );
     }
 
@@ -58,40 +54,36 @@ class ApiTest extends \PHPUnit\Framework\TestCase
             @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
             'password' => 'secret'
         ])['response']['data']['access_token'];
-        $this->assertTrue(
-            CompareHelper::compare(
-                $this->request('POST', '/auth/refresh', null, [
-                    'Authorization' => 'Bearer ' . $access_token
-                ]),
-                [
-                    'response' => [
-                        'success' => true,
-                        'message' => 'auth successful',
-                        'public_message' => '#STR#',
-                        'data' => '*'
-                    ],
-                    'code' => 200
-                ]
-            )
+        CompareHelper::assertEquals(
+            $this->request('POST', '/auth/refresh', null, [
+                'Authorization' => 'Bearer ' . $access_token
+            ]),
+            [
+                'response' => [
+                    'success' => true,
+                    'message' => 'auth successful',
+                    'public_message' => '#STR#',
+                    'data' => '*'
+                ],
+                'code' => 200
+            ]
         );
     }
 
     function testRefreshFailure()
     {
-        $this->assertTrue(
-            CompareHelper::compare(
-                $this->request('POST', '/auth/refresh', null, [
-                    'Authorization' => 'Bearer foo'
-                ]),
-                [
-                    'response' => [
-                        'success' => false,
-                        'message' => 'invalid token',
-                        'public_message' => '#STR#'
-                    ],
-                    'code' => 401
-                ]
-            )
+        CompareHelper::assertEquals(
+            $this->request('POST', '/auth/refresh', null, [
+                'Authorization' => 'Bearer foo'
+            ]),
+            [
+                'response' => [
+                    'success' => false,
+                    'message' => 'invalid token',
+                    'public_message' => '#STR#'
+                ],
+                'code' => 401
+            ]
         );
     }
 
@@ -101,20 +93,18 @@ class ApiTest extends \PHPUnit\Framework\TestCase
             @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
             'password' => 'secret'
         ])['response']['data']['access_token'];
-        $this->assertTrue(
-            CompareHelper::compare(
-                $this->request('POST', '/auth/logout', null, [
-                    'Authorization' => 'Bearer ' . $access_token
-                ]),
-                [
-                    'response' => [
-                        'success' => true,
-                        'message' => 'logout successful',
-                        'public_message' => '#STR#'
-                    ],
-                    'code' => 200
-                ]
-            )
+        CompareHelper::assertEquals(
+            $this->request('POST', '/auth/logout', null, [
+                'Authorization' => 'Bearer ' . $access_token
+            ]),
+            [
+                'response' => [
+                    'success' => true,
+                    'message' => 'logout successful',
+                    'public_message' => '#STR#'
+                ],
+                'code' => 200
+            ]
         );
     }
 
@@ -124,40 +114,36 @@ class ApiTest extends \PHPUnit\Framework\TestCase
             @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
             'password' => 'secret'
         ])['response']['data']['access_token'];
-        $this->assertTrue(
-            CompareHelper::compare(
-                $this->request('POST', '/auth/check', [
-                    'access_token' => $access_token
-                ]),
-                [
-                    'response' => [
-                        'success' => true,
-                        'message' => 'valid token',
-                        'public_message' => '#STR#',
-                        'data' => '*'
-                    ],
-                    'code' => 200
-                ]
-            )
+        CompareHelper::assertEquals(
+            $this->request('POST', '/auth/check', [
+                'access_token' => $access_token
+            ]),
+            [
+                'response' => [
+                    'success' => true,
+                    'message' => 'valid token',
+                    'public_message' => '#STR#',
+                    'data' => '*'
+                ],
+                'code' => 200
+            ]
         );
     }
 
     function testCheckFailure()
     {
-        $this->assertTrue(
-            CompareHelper::compare(
-                $this->request('POST', '/auth/check', null, [
-                    'Authorization' => 'Bearer foo'
-                ]),
-                [
-                    'response' => [
-                        'success' => false,
-                        'message' => 'invalid token',
-                        'public_message' => '#STR#'
-                    ],
-                    'code' => 401
-                ]
-            )
+        CompareHelper::assertEquals(
+            $this->request('POST', '/auth/check', null, [
+                'Authorization' => 'Bearer foo'
+            ]),
+            [
+                'response' => [
+                    'success' => false,
+                    'message' => 'invalid token',
+                    'public_message' => '#STR#'
+                ],
+                'code' => 401
+            ]
         );
     }
 
