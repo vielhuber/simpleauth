@@ -63,9 +63,10 @@ php auth/index.php migrate
 php auth/index.php create "david@vielhuber.de" "secret"
 ```
 
-and you should be done (a test user `david@vielhuber.de` with the password `secret` is created).\
+and you should be done (a test user `'david@vielhuber.de'` with the password `'secret'` is created).\
 you can now fully authenticate with the routes below.\
-if you want to authenticate via username instead of email, simply change `login` to `username`.
+if you want to authenticate via username instead of email, simply change `login` to `'username'`.
+if you need uuids instead of integers as your user ids, change `uuid` to `true`.
 
 ## routes
 
