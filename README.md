@@ -26,8 +26,8 @@ now simply create the following files in a new folder called `auth` inside your 
 <?php
 require_once __DIR__ . '/../vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
-$auth = new simpleauth(__DIR__ . '/../.env');
-$auth->init(table: 'users', login: 'email', ttl: 30, uuid: false);
+$auth = new simpleauth(config: __DIR__ . '/../.env', table: 'users', login: 'email', ttl: 30, uuid: false);
+$auth->init();
 ```
 
 #### /auth/.htaccess
@@ -93,8 +93,7 @@ you can use the following functions inside your own application (they do not nee
 ```php
 require __DIR__ . '/vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
-$auth = new simpleauth(__DIR__ . '/.env');
-
+$auth = new simpleauth(config: __DIR__ . '/../.env', table: 'users', login: 'email', ttl: 30, uuid: false);
 $auth->isLoggedIn();
 $auth->getCurrentUserId();
 ```

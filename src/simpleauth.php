@@ -20,7 +20,7 @@ class simpleauth
     private $config = null;
     private $db = null;
 
-    function __construct($config)
+    function __construct($config = null, $table = 'users', $login = 'email', $ttl = 30, $uuid = false)
     {
         $dotenv = \Dotenv\Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config));
         $dotenv->load();
@@ -44,15 +44,15 @@ class simpleauth
             $this->config->DB_DATABASE,
             $this->config->DB_PORT
         );
-    }
 
-    function init($table = 'users', $login = 'email', $ttl = 30, $uuid = false)
-    {
         $this->config->JWT_TABLE = $table;
         $this->config->JWT_LOGIN = $login;
         $this->config->JWT_TTL = $ttl;
         $this->config->JWT_UUID = $uuid;
+    }
 
+    function init()
+    {
         global $argv;
         if (php_sapi_name() !== 'cli') {
             $this->api();
