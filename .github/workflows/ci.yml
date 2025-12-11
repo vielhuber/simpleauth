@@ -8,9 +8,6 @@ env:
     DB_DATABASE: ${{ secrets.DB_DATABASE }}
     DB_USERNAME: ${{ secrets.DB_USERNAME }}
     DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-    JWT_TABLE: ${{ secrets.JWT_TABLE }}
-    JWT_LOGIN: ${{ secrets.JWT_LOGIN }}
-    JWT_TTL: ${{ secrets.JWT_TTL }}
     JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
 on:
@@ -73,9 +70,6 @@ jobs:
                   DB_DATABASE=${{ secrets.DB_DATABASE }}
                   DB_USERNAME=${{ secrets.DB_USERNAME }}
                   DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-                  JWT_TABLE=${{ secrets.JWT_TABLE }}
-                  JWT_LOGIN=${{ secrets.JWT_LOGIN }}
-                  JWT_TTL=${{ secrets.JWT_TTL }}
                   JWT_SECRET=${{ secrets.JWT_SECRET }}
                   EOF
               shell: bash

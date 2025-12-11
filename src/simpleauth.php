@@ -32,9 +32,6 @@ class simpleauth
             'DB_DATABASE' => @$_SERVER['DB_DATABASE'],
             'DB_USERNAME' => @$_SERVER['DB_USERNAME'],
             'DB_PASSWORD' => @$_SERVER['DB_PASSWORD'],
-            'JWT_TABLE' => @$_SERVER['JWT_TABLE'],
-            'JWT_LOGIN' => @$_SERVER['JWT_LOGIN'],
-            'JWT_TTL' => @$_SERVER['JWT_TTL'],
             'JWT_SECRET' => @$_SERVER['JWT_SECRET']
         ];
         $this->db = new dbhelper();
@@ -49,8 +46,13 @@ class simpleauth
         );
     }
 
-    function init()
+    function init($table = 'users', $login = 'email', $ttl = 30, $uuid = false)
     {
+        $this->config->JWT_TABLE = $table;
+        $this->config->JWT_LOGIN = $login;
+        $this->config->JWT_TTL = $ttl;
+        $this->config->JWT_UUID = $uuid;
+
         global $argv;
         if (php_sapi_name() !== 'cli') {
             $this->api();
@@ -280,7 +282,9 @@ class simpleauth
                 $this->config->JWT_TABLE .
                 '
             (
-                id SERIAL PRIMARY KEY,
+                id ' .
+                ($this->config->JWT_UUID === true ? 'VARCHAR(36)' : 'SERIAL') .
+                ' PRIMARY KEY,
                 ' .
                 $this->config->JWT_LOGIN .
                 ' varchar(100) NOT NULL,
@@ -307,11 +311,24 @@ class simpleauth
         ) {
             throw new \Exception('user already exists');
         }
-        $this->db->query(
-            'INSERT INTO ' . $this->config->JWT_TABLE . '(' . $this->config->JWT_LOGIN . ',password) VALUES(?,?)',
-            $login,
-            password_hash($password, PASSWORD_DEFAULT)
-        );
+        if ($this->config->JWT_UUID === false) {
+            $this->db->query(
+                'INSERT INTO ' . $this->config->JWT_TABLE . '(' . $this->config->JWT_LOGIN . ',password) VALUES(?,?)',
+                $login,
+                password_hash($password, PASSWORD_DEFAULT)
+            );
+        } else {
+            $this->db->query(
+                'INSERT INTO ' .
+                    $this->config->JWT_TABLE .
+                    '(id, ' .
+                    $this->config->JWT_LOGIN .
+                    ',password) VALUES(?,?,?)',
+                $this->uuid(),
+                $login,
+                password_hash($password, PASSWORD_DEFAULT)
+            );
+        }
         return true;
     }
 
@@ -397,5 +414,37 @@ class simpleauth
         } catch (\Exception $e) {
             return null;
         }
+    }
+
+    private function uuid()
+    {
+        static $last_unix_ms = null;
+        static $sequence = 0;
+        $unix_ms = (int) (microtime(true) * 1000);
+        if ($unix_ms === $last_unix_ms) {
+            $sequence++;
+            $sequence &= 0x3fff;
+            if ($sequence === 0) {
+                $unix_ms++;
+            }
+        } else {
+            $sequence = random_int(0, 0x3fff);
+            $last_unix_ms = $unix_ms;
+        }
+        $time_high = ($unix_ms >> 16) & 0xffffffff;
+        $time_low = $unix_ms & 0xffff;
+        $time_hi_and_version = ($time_low & 0x0fff) | (0x7 << 12);
+        $clock_seq_hi_and_reserved = ($sequence & 0x3fff) | 0x8000;
+        $rand_bytes = random_bytes(6);
+        $rand_hex = bin2hex($rand_bytes);
+        $uuid = sprintf(
+            '%08x-%04x-%04x-%04x-%012s',
+            $time_high,
+            $time_low,
+            $time_hi_and_version,
+            $clock_seq_hi_and_reserved,
+            $rand_hex
+        );
+        return $uuid;
     }
 }

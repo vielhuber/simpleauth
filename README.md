@@ -27,8 +27,7 @@ now simply create the following files in a new folder called `auth` inside your 
 require_once __DIR__ . '/../vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
 $auth = new simpleauth(__DIR__ . '/../.env');
-
-$auth->init();
+$auth->init(table: 'users', login: 'email', ttl: 30, uuid: false);
 ```
 
 #### /auth/.htaccess
@@ -54,9 +53,6 @@ DB_PORT=3306
 DB_DATABASE=simpleauth
 DB_USERNAME=root
 DB_PASSWORD=root
-JWT_TABLE=users
-JWT_LOGIN=email
-JWT_TTL=30
 JWT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
@@ -69,7 +65,7 @@ php auth/index.php create "david@vielhuber.de" "secret"
 
 and you should be done (a test user `david@vielhuber.de` with the password `secret` is created).\
 you can now fully authenticate with the routes below.\
-if you want to authenticate via username instead of email, simply change JWT_LOGIN to `username`.
+if you want to authenticate via username instead of email, simply change `login` to `username`.
 
 ## routes
 
