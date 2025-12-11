@@ -16,7 +16,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
     {
         CompareHelper::assertEquals(
             $this->request('POST', '/auth/login', [
-                @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
+                'email' => 'david@vielhuber.de',
                 'password' => 'secret'
             ]),
             [
@@ -51,7 +51,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
     function testRefresh()
     {
         $access_token = $this->request('POST', '/auth/login', [
-            @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
+            'email' => 'david@vielhuber.de',
             'password' => 'secret'
         ])['response']['data']['access_token'];
         CompareHelper::assertEquals(
@@ -90,7 +90,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
     function testLogout()
     {
         $access_token = $this->request('POST', '/auth/login', [
-            @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
+            'email' => 'david@vielhuber.de',
             'password' => 'secret'
         ])['response']['data']['access_token'];
         CompareHelper::assertEquals(
@@ -111,7 +111,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
     function testCheck()
     {
         $access_token = $this->request('POST', '/auth/login', [
-            @$_SERVER['JWT_LOGIN'] => 'david@vielhuber.de',
+            'email' => 'david@vielhuber.de',
             'password' => 'secret'
         ])['response']['data']['access_token'];
         CompareHelper::assertEquals(
