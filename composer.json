@@ -3,10 +3,10 @@
     "description": "Simple php authentication library.",
     "require": {
         "php": ">=7.4",
-        "vielhuber/dbhelper": ">=1.8",
-        "firebase/php-jwt": "^6.0",
-        "vielhuber/comparehelper": ">=1.0",
-        "guzzlehttp/guzzle": "^6.3",
+        "vielhuber/dbhelper": "*",
+        "firebase/php-jwt": "*",
+        "vielhuber/comparehelper": "*",
+        "guzzlehttp/guzzle": "*",
         "vlucas/phpdotenv": "*"
     },
     "license": "MIT",

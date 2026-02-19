@@ -14,7 +14,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
 
     function testLogin()
     {
-        CompareHelper::assertEquals(
+        comparehelper::assertEquals(
             $this->request('POST', '/auth/login', [
                 'email' => 'david@vielhuber.de',
                 'password' => 'secret'
@@ -33,7 +33,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
 
     function testLoginFailure()
     {
-        CompareHelper::assertEquals(
+        comparehelper::assertEquals(
             $this->request('POST', '/auth/login', [
                 'foo' => 'bar'
             ]),
@@ -54,7 +54,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
             'email' => 'david@vielhuber.de',
             'password' => 'secret'
         ])['response']['data']['access_token'];
-        CompareHelper::assertEquals(
+        comparehelper::assertEquals(
             $this->request('POST', '/auth/refresh', null, [
                 'Authorization' => 'Bearer ' . $access_token
             ]),
@@ -72,7 +72,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
 
     function testRefreshFailure()
     {
-        CompareHelper::assertEquals(
+        comparehelper::assertEquals(
             $this->request('POST', '/auth/refresh', null, [
                 'Authorization' => 'Bearer foo'
             ]),
@@ -93,7 +93,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
             'email' => 'david@vielhuber.de',
             'password' => 'secret'
         ])['response']['data']['access_token'];
-        CompareHelper::assertEquals(
+        comparehelper::assertEquals(
             $this->request('POST', '/auth/logout', null, [
                 'Authorization' => 'Bearer ' . $access_token
             ]),
@@ -114,7 +114,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
             'email' => 'david@vielhuber.de',
             'password' => 'secret'
         ])['response']['data']['access_token'];
-        CompareHelper::assertEquals(
+        comparehelper::assertEquals(
             $this->request('POST', '/auth/check', [
                 'access_token' => $access_token
             ]),
@@ -132,7 +132,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
 
     function testCheckFailure()
     {
-        CompareHelper::assertEquals(
+        comparehelper::assertEquals(
             $this->request('POST', '/auth/check', null, [
                 'Authorization' => 'Bearer foo'
             ]),
@@ -150,7 +150,7 @@ class ApiTest extends \PHPUnit\Framework\TestCase
     private function request($method = 'GET', $route = '/', $data = [], $headers = [])
     {
         $client = new Client([
-            'base_uri' => 'http://localhost:8000'
+            'base_uri' => 'http://localhost:8007'
         ]);
         try {
             $response = $client->request($method, $route, [

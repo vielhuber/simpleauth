@@ -82,7 +82,7 @@ the following routes are provided automatically:
 ## tests
 
 ```sh
-php -S localhost:8000 -t auth
+php -S localhost:8007 -t auth
 ./vendor/bin/phpunit
 ```
 

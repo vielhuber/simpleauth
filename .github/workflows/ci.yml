@@ -75,7 +75,7 @@ jobs:
               shell: bash
 
             - name: Start PHP Server
-              run: php -S localhost:8000 -t auth > /tmp/php-server.log 2>&1 &
+              run: php -S localhost:8007 -t auth > /tmp/php-server.log 2>&1 &
               shell: bash
 
             - name: PHP Tests
