@@ -1,4 +1,10 @@
 [![build status](https://github.com/vielhuber/simpleauth/actions/workflows/ci.yml/badge.svg)](https://github.com/vielhuber/simpleauth/actions)
+[![GitHub Tag](https://img.shields.io/github/v/tag/vielhuber/simpleauth)](https://github.com/vielhuber/simpleauth/tags)
+[![Code Style](https://img.shields.io/badge/code_style-psr--12-ff69b4.svg)](https://www.php-fig.org/psr/psr-12/)
+[![License](https://img.shields.io/github/license/vielhuber/simpleauth)](https://github.com/vielhuber/simpleauth/blob/main/LICENSE.md)
+[![Last Commit](https://img.shields.io/github/last-commit/vielhuber/simpleauth)](https://github.com/vielhuber/simpleauth/commits)
+[![PHP Version Support](https://img.shields.io/packagist/php-v/vielhuber/simpleauth)](https://packagist.org/packages/vielhuber/simpleauth)
+[![Packagist Downloads](https://img.shields.io/packagist/dt/vielhuber/simpleauth)](https://packagist.org/packages/vielhuber/simpleauth)
 
 # 🔒 simpleauth 🔒
 
@@ -18,7 +24,7 @@ install once with composer:
 composer require vielhuber/simpleauth
 ```
 
-now simply create the following files in a new folder called `auth` inside your public directory:
+now simply create the following files inside a new folder called `auth` inside your public directory:
 
 #### /auth/index.php
 
