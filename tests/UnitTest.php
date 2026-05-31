@@ -48,6 +48,41 @@ class UnitTest extends \PHPUnit\Framework\TestCase
         );
     }
 
+    function testLoginThrottling()
+    {
+        for ($i = 0; $i < 5; $i++) {
+            comparehelper::assertEquals(
+                [
+                    'response' => [
+                        'success' => false,
+                        'message' => 'auth not successful',
+                        'public_message' => '#STR#'
+                    ],
+                    'code' => 401
+                ],
+                $this->request('POST', '/auth/login', [
+                    'email' => 'david@vielhuber.de',
+                    'password' => 'wrong'
+                ])
+            );
+        }
+
+        comparehelper::assertEquals(
+            [
+                'response' => [
+                    'success' => false,
+                    'message' => 'too many login attempts',
+                    'public_message' => '#STR#'
+                ],
+                'code' => 429
+            ],
+            $this->request('POST', '/auth/login', [
+                'email' => 'david@vielhuber.de',
+                'password' => 'secret'
+            ])
+        );
+    }
+
     function testRefresh()
     {
         $access_token = $this->request('POST', '/auth/login', [

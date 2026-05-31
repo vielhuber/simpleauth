@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace vielhuber\simpleauth;
 
 use vielhuber\dbhelper\dbhelper;
@@ -17,12 +19,22 @@ if (!(headers_sent() || ob_get_length() > 0) && (PHP_SAPI != 'cli' || strpos($_S
 
 class simpleauth
 {
-    private $config = null;
-    private $db = null;
+    private object $config;
+    private dbhelper $db;
 
-    function __construct($config = null, $table = 'users', $login = 'email', $ttl = 30, $uuid = false)
+    function __construct(
+        ?string $config = null,
+        string $table = 'users',
+        string $login = 'email',
+        int $ttl = 30,
+        bool $uuid = false,
+        bool $throttle = true,
+        int $throttleAttempts = 5,
+        int $throttleMinutes = 15,
+        string $throttleTable = 'users_login_attempts'
+    )
     {
-        $dotenv = \Dotenv\Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config));
+        $dotenv = \Dotenv\Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config ?? ''));
         $dotenv->load();
 
         $this->config = (object) [
@@ -49,6 +61,10 @@ class simpleauth
         $this->config->JWT_LOGIN = $login;
         $this->config->JWT_TTL = $ttl;
         $this->config->JWT_UUID = $uuid;
+        $this->config->JWT_THROTTLE = $throttle;
+        $this->config->JWT_THROTTLE_ATTEMPTS = $throttleAttempts;
+        $this->config->JWT_THROTTLE_MINUTES = $throttleMinutes;
+        $this->config->JWT_THROTTLE_TABLE = $throttleTable;
     }
 
     function init()
@@ -101,7 +117,7 @@ class simpleauth
         $this->createTable();
     }
 
-    function create($username, $password)
+    function create(string $username, string $password): void
     {
         try {
             $this->deleteUser($username);
@@ -125,7 +141,7 @@ class simpleauth
         return @$_SERVER['REQUEST_METHOD'];
     }
 
-    private function apiInput($key)
+    private function apiInput(string $key): mixed
     {
         $p1 = $_POST;
         $p2 = json_decode(file_get_contents('php://input'), true);
@@ -151,18 +167,30 @@ class simpleauth
     private function apiLogin()
     {
         try {
-            $login = $this->apiInput($this->config->JWT_LOGIN);
-            $password = $this->apiInput('password');
+            $login = (string) $this->apiInput($this->config->JWT_LOGIN);
+            $password = (string) $this->apiInput('password');
             if ($login == '' || $password == '') {
                 throw new \Exception('login or password missing');
+            }
+            if ($this->throttleReached($login)) {
+                return $this->apiResponse(
+                    [
+                        'success' => false,
+                        'message' => 'too many login attempts',
+                        'public_message' => 'Zu viele Loginversuche. Bitte später erneut versuchen.'
+                    ],
+                    429
+                );
             }
             $user = $this->db->fetch_row(
                 'SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
                 $login
             );
             if (empty($user) || !password_verify($password, $user['password'])) {
+                $this->throttleRecord($login);
                 throw new \Exception('login or password wrong');
             }
+            $this->throttleClear($login);
             $data = $this->createAccessToken($user['id'], $user[$this->config->JWT_LOGIN]);
             return $this->apiResponse(
                 [
@@ -239,7 +267,7 @@ class simpleauth
     private function apiCheck()
     {
         try {
-            $access_token = $this->apiInput('access_token');
+            $access_token = (string) $this->apiInput('access_token');
             $user_id = $this->getUserIdFromAccessToken($access_token);
             return $this->apiResponse(
                 [
@@ -266,7 +294,7 @@ class simpleauth
         }
     }
 
-    private function apiResponse($data, $code = 200)
+    private function apiResponse(array $data, int $code = 200): void
     {
         http_response_code($code);
         header('Content-Type: application/json');
@@ -292,16 +320,100 @@ class simpleauth
             )
         '
         );
+        $this->db->query(
+            '
+            CREATE TABLE IF NOT EXISTS ' .
+                $this->config->JWT_THROTTLE_TABLE .
+                '
+            (
+                id SERIAL PRIMARY KEY,
+                login_identifier varchar(255) NOT NULL,
+                ip_address varchar(45) NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX login_attempts_lookup (login_identifier, ip_address, created_at)
+            )
+        '
+        );
         return true;
     }
 
     function deleteTable()
     {
         $this->db->query('DROP TABLE IF EXISTS ' . $this->config->JWT_TABLE);
+        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->JWT_THROTTLE_TABLE);
         return true;
     }
 
-    function createUser($login, $password)
+    private function throttleEnabled(): bool
+    {
+        return
+            $this->config->JWT_THROTTLE === true &&
+            $this->config->JWT_THROTTLE_ATTEMPTS > 0 &&
+            $this->config->JWT_THROTTLE_MINUTES > 0;
+    }
+
+    private function throttleReached(string $login): bool
+    {
+        if (!$this->throttleEnabled()) {
+            return false;
+        }
+        return $this->db->fetch_var(
+            'SELECT COUNT(id) FROM ' .
+                $this->config->JWT_THROTTLE_TABLE .
+                ' WHERE login_identifier = ? AND ip_address = ? AND created_at >= ?',
+            $login,
+            $this->throttleIpAddress(),
+            $this->throttleDateThreshold()
+        ) >= $this->config->JWT_THROTTLE_ATTEMPTS;
+    }
+
+    private function throttleRecord(string $login): void
+    {
+        if (!$this->throttleEnabled()) {
+            return;
+        }
+        $this->throttleDeleteExpiredAttempts();
+        $this->db->query(
+            'INSERT INTO ' .
+                $this->config->JWT_THROTTLE_TABLE .
+                '(login_identifier, ip_address, created_at) VALUES(?,?,?)',
+            $login,
+            $this->throttleIpAddress(),
+            date('Y-m-d H:i:s')
+        );
+    }
+
+    private function throttleClear(string $login): void
+    {
+        if (!$this->throttleEnabled()) {
+            return;
+        }
+        $this->db->query(
+            'DELETE FROM ' . $this->config->JWT_THROTTLE_TABLE . ' WHERE login_identifier = ? AND ip_address = ?',
+            $login,
+            $this->throttleIpAddress()
+        );
+    }
+
+    private function throttleDeleteExpiredAttempts(): void
+    {
+        $this->db->query(
+            'DELETE FROM ' . $this->config->JWT_THROTTLE_TABLE . ' WHERE created_at < ?',
+            $this->throttleDateThreshold()
+        );
+    }
+
+    private function throttleDateThreshold(): string
+    {
+        return date('Y-m-d H:i:s', time() - 60 * $this->config->JWT_THROTTLE_MINUTES);
+    }
+
+    private function throttleIpAddress(): string
+    {
+        return $_SERVER['REMOTE_ADDR'] ?? '';
+    }
+
+    function createUser(string $login, string $password): bool
     {
         if (
             $this->db->fetch_var(
@@ -332,7 +444,7 @@ class simpleauth
         return true;
     }
 
-    function deleteUser($login)
+    function deleteUser(string $login): bool
     {
         if (
             $this->db->fetch_var(
@@ -349,7 +461,7 @@ class simpleauth
         return true;
     }
 
-    private function createAccessToken($user_id, $user_login)
+    private function createAccessToken(string|int $user_id, string $user_login): array
     {
         $access_token = JWT::encode(
             [
@@ -369,7 +481,7 @@ class simpleauth
         ];
     }
 
-    function getUserIdFromAccessToken($access_token)
+    function getUserIdFromAccessToken(?string $access_token): mixed
     {
         try {
             $data = JWT::decode(
@@ -382,7 +494,7 @@ class simpleauth
         }
     }
 
-    function getUserLoginFromAccessToken($access_token)
+    function getUserLoginFromAccessToken(?string $access_token): mixed
     {
         try {
             $data = JWT::decode(

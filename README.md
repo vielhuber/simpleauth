@@ -74,6 +74,18 @@ you can now fully authenticate with the routes below.\
 if you want to authenticate via username instead of email, simply change `login` to `'username'`.\
 if you need uuids instead of integers as your user ids, change `uuid` to `true`.
 
+login throttling is enabled by default: after 5 failed login attempts per login and IP within 15 minutes, `/auth/login` responds with status `429`. You can toggle it and adjust the limits with the last constructor arguments:
+
+```php
+$auth = new simpleauth(
+    /* ... */
+    throttle: true,
+    throttleAttempts: 5,
+    throttleMinutes: 15,
+    throttleTable: 'users_login_attempts'
+);
+```
+
 ## routes
 
 the following routes are provided automatically:
