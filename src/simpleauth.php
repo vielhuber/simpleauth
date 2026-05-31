@@ -29,7 +29,10 @@ use Webauthn\PublicKeyCredentialRpEntity;
 use Webauthn\PublicKeyCredentialUserEntity;
 
 // cors
-if (!(headers_sent() || ob_get_length() > 0) && (PHP_SAPI != 'cli' || strpos($_SERVER['argv'][0], 'phpunit') === false)) {
+if (
+    !(headers_sent() || ob_get_length() > 0) &&
+    (PHP_SAPI != 'cli' || strpos($_SERVER['argv'][0], 'phpunit') === false)
+) {
     header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -59,8 +62,7 @@ class simpleauth
             'table_challenge' => 'users_passkeys_challenges'
         ],
         false|array $captcha = false
-    )
-    {
+    ) {
         $dotenv = \Dotenv\Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config ?? ''));
         $dotenv->load();
 
@@ -91,7 +93,8 @@ class simpleauth
         $this->config->JWT_THROTTLE = $throttle !== false;
         $this->config->JWT_THROTTLE_ATTEMPTS = $throttle === false ? 5 : (int) ($throttle['attempts'] ?? 5);
         $this->config->JWT_THROTTLE_MINUTES = $throttle === false ? 15 : (int) ($throttle['minutes'] ?? 15);
-        $this->config->JWT_THROTTLE_TABLE = $throttle === false ? 'users_login_attempts' : (string) ($throttle['table'] ?? 'users_login_attempts');
+        $this->config->JWT_THROTTLE_TABLE =
+            $throttle === false ? 'users_login_attempts' : (string) ($throttle['table'] ?? 'users_login_attempts');
         $this->config->JWT_PASSKEY = $passkeys !== false;
         $passkeys_table = $passkeys === false ? 'users_passkeys' : (string) ($passkeys['table'] ?? 'users_passkeys');
         $this->config->JWT_PASSKEY_TABLE = $passkeys_table;
@@ -139,16 +142,32 @@ class simpleauth
         if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'check') {
             return $this->apiCheck();
         }
-        if ($this->passkeyEnabled() && $this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'passkey-register-options') {
+        if (
+            $this->passkeyEnabled() &&
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'passkey-register-options'
+        ) {
             return $this->apiPasskeyRegisterOptions();
         }
-        if ($this->passkeyEnabled() && $this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'passkey-register') {
+        if (
+            $this->passkeyEnabled() &&
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'passkey-register'
+        ) {
             return $this->apiPasskeyRegister();
         }
-        if ($this->passkeyEnabled() && $this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'passkey-login-options') {
+        if (
+            $this->passkeyEnabled() &&
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'passkey-login-options'
+        ) {
             return $this->apiPasskeyLoginOptions();
         }
-        if ($this->passkeyEnabled() && $this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'passkey-login') {
+        if (
+            $this->passkeyEnabled() &&
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'passkey-login'
+        ) {
             return $this->apiPasskeyLogin();
         }
         return $this->apiResponse(
@@ -161,7 +180,7 @@ class simpleauth
         );
     }
 
-    private function migrate(): void
+    public function migrate(): void
     {
         $this->deleteTable();
         $this->createTable();
@@ -367,10 +386,7 @@ class simpleauth
                 PublicKeyCredentialRpEntity::create($this->passkeyRpName(), $this->passkeyRpId()),
                 PublicKeyCredentialUserEntity::create($user_login, (string) $user_id, $user_login),
                 random_bytes(32),
-                [
-                    PublicKeyCredentialParameters::createPk(-7),
-                    PublicKeyCredentialParameters::createPk(-257)
-                ],
+                [PublicKeyCredentialParameters::createPk(-7), PublicKeyCredentialParameters::createPk(-257)],
                 AuthenticatorSelectionCriteria::create(
                     null,
                     AuthenticatorSelectionCriteria::USER_VERIFICATION_REQUIREMENT_PREFERRED,
@@ -428,10 +444,12 @@ class simpleauth
                 PublicKeyCredentialCreationOptions::class
             );
             $credential = $serializer->denormalize($credential_data, PublicKeyCredential::class);
-            if (!$credential->response instanceof AuthenticatorAttestationResponse) {
+            if (!($credential->response instanceof AuthenticatorAttestationResponse)) {
                 throw new \Exception('invalid credential response');
             }
-            $validator = AuthenticatorAttestationResponseValidator::create($this->passkeyCeremonyFactory()->creationCeremony());
+            $validator = AuthenticatorAttestationResponseValidator::create(
+                $this->passkeyCeremonyFactory()->creationCeremony()
+            );
             $credential_record = $validator->check($credential->response, $options, $this->passkeyRpId());
             $this->passkeyStoreCredential((string) $user_id, $user_login, $credential_record);
             $this->passkeyDeleteChallenge((int) $challenge_row['id']);
@@ -537,14 +555,16 @@ class simpleauth
                 PublicKeyCredentialRequestOptions::class
             );
             $credential = $serializer->denormalize($credential_data, PublicKeyCredential::class);
-            if (!$credential->response instanceof AuthenticatorAssertionResponse) {
+            if (!($credential->response instanceof AuthenticatorAssertionResponse)) {
                 throw new \Exception('invalid credential response');
             }
             $credential_record = $serializer->denormalize(
                 json_decode($passkey['credential_record'], true),
                 CredentialRecord::class
             );
-            $validator = AuthenticatorAssertionResponseValidator::create($this->passkeyCeremonyFactory()->requestCeremony());
+            $validator = AuthenticatorAssertionResponseValidator::create(
+                $this->passkeyCeremonyFactory()->requestCeremony()
+            );
             $credential_record = $validator->check(
                 $credential_record,
                 $credential->response,
@@ -761,7 +781,8 @@ class simpleauth
             $this->db->fetch_all(
                 'SELECT credential_record FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE user_id = ?',
                 $user_id
-            ) as $passkey
+            )
+            as $passkey
         ) {
             $credentials[] = $this->passkeySerializer()->denormalize(
                 json_decode($passkey['credential_record'], true),
@@ -771,8 +792,11 @@ class simpleauth
         return $credentials;
     }
 
-    private function passkeyStoreCredential(string $user_id, string $login_identifier, CredentialRecord $credential_record): void
-    {
+    private function passkeyStoreCredential(
+        string $user_id,
+        string $login_identifier,
+        CredentialRecord $credential_record
+    ): void {
         $credential_id = Base64UrlSafe::encodeUnpadded($credential_record->publicKeyCredentialId);
         if (
             $this->db->fetch_var(
@@ -813,7 +837,10 @@ class simpleauth
         if (!isset($credential_data['response']['clientDataJSON'])) {
             throw new \Exception('client data missing');
         }
-        $client_data = json_decode(Base64UrlSafe::decodeNoPadding($credential_data['response']['clientDataJSON']), true);
+        $client_data = json_decode(
+            Base64UrlSafe::decodeNoPadding($credential_data['response']['clientDataJSON']),
+            true
+        );
         if (!is_array($client_data) || !isset($client_data['challenge'])) {
             throw new \Exception('challenge missing');
         }
@@ -840,14 +867,13 @@ class simpleauth
 
     private function passkeyOrigins(): array
     {
-        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
         return [$scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')];
     }
 
     private function captchaEnabled(): bool
     {
-        return
-            $this->config->JWT_CAPTCHA === true;
+        return $this->config->JWT_CAPTCHA === true;
     }
 
     private function captchaValid(): bool
@@ -889,8 +915,7 @@ class simpleauth
 
     private function throttleEnabled(): bool
     {
-        return
-            $this->config->JWT_THROTTLE === true &&
+        return $this->config->JWT_THROTTLE === true &&
             $this->config->JWT_THROTTLE_ATTEMPTS > 0 &&
             $this->config->JWT_THROTTLE_MINUTES > 0;
     }
