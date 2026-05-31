@@ -2,12 +2,13 @@
     "name": "vielhuber/simpleauth",
     "description": "Simple php authentication library.",
     "require": {
-        "php": ">=8.0",
+        "php": "^8.5",
         "vielhuber/dbhelper": "^2.4.6",
         "firebase/php-jwt": "^7.0.5",
         "vielhuber/comparehelper": "^1.1.9",
         "guzzlehttp/guzzle": "^7.10.3",
-        "vlucas/phpdotenv": "^5.6.3"
+        "vlucas/phpdotenv": "^5.6.3",
+        "web-auth/webauthn-lib": "^5.3"
     },
     "license": "MIT",
     "autoload": {

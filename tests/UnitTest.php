@@ -182,6 +182,63 @@ class UnitTest extends \PHPUnit\Framework\TestCase
         );
     }
 
+    function testPasskeyRegister()
+    {
+        $access_token = $this->request('POST', '/auth/login', [
+            'email' => 'david@vielhuber.de',
+            'password' => 'secret'
+        ])['response']['data']['access_token'];
+        comparehelper::assertEquals(
+            [
+                'response' => [
+                    'success' => true,
+                    'message' => 'passkey registration options created',
+                    'public_message' => '#STR#',
+                    'data' => [
+                        'publicKey' => [
+                            'challenge' => '#STR#',
+                            'rp' => '*',
+                            'user' => '*',
+                            'pubKeyCredParams' => '*',
+                            'authenticatorSelection' => '*',
+                            'attestation' => 'none',
+                            'excludeCredentials' => '*',
+                            'timeout' => 60000
+                        ]
+                    ]
+                ],
+                'code' => 200
+            ],
+            $this->request('POST', '/auth/passkey-register-options', null, [
+                'Authorization' => 'Bearer ' . $access_token
+            ])
+        );
+    }
+
+    function testPasskeyLogin()
+    {
+        comparehelper::assertEquals(
+            [
+                'response' => [
+                    'success' => true,
+                    'message' => 'passkey login options created',
+                    'public_message' => '#STR#',
+                    'data' => [
+                        'publicKey' => [
+                            'challenge' => '#STR#',
+                            'rpId' => '#STR#',
+                            'allowCredentials' => [],
+                            'userVerification' => 'preferred',
+                            'timeout' => 60000
+                        ]
+                    ]
+                ],
+                'code' => 200
+            ],
+            $this->request('POST', '/auth/passkey-login-options')
+        );
+    }
+
     private function request($method = 'GET', $route = '/', $data = [], $headers = [])
     {
         $client = new Client([
