@@ -22,7 +22,7 @@ class simpleauth
     private object $config;
     private dbhelper $db;
 
-    function __construct(
+    public function __construct(
         ?string $config = null,
         string $table = 'users',
         string $login = 'email',
@@ -67,7 +67,7 @@ class simpleauth
         $this->config->JWT_THROTTLE_TABLE = $throttleTable;
     }
 
-    function init()
+    public function init(): void
     {
         global $argv;
         if (php_sapi_name() !== 'cli') {
@@ -87,7 +87,7 @@ class simpleauth
         }
     }
 
-    function api()
+    private function api()
     {
         if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'login') {
             return $this->apiLogin();
@@ -111,13 +111,13 @@ class simpleauth
         );
     }
 
-    function migrate()
+    private function migrate(): void
     {
         $this->deleteTable();
         $this->createTable();
     }
 
-    function create(string $username, string $password): void
+    private function create(string $username, string $password): void
     {
         try {
             $this->deleteUser($username);
@@ -217,7 +217,7 @@ class simpleauth
     {
         try {
             $user_id = $this->getUserIdFromAccessToken(@$_SERVER['HTTP_AUTHORIZATION']);
-            $user_login = $this->getUserLoginFromAccessToken(@$_SERVER['HTTP_AUTHORIZATION']);
+            $user_login = (string) $this->getUserLoginFromAccessToken(@$_SERVER['HTTP_AUTHORIZATION']);
             $data = $this->createAccessToken($user_id, $user_login);
             return $this->apiResponse(
                 [
@@ -302,7 +302,7 @@ class simpleauth
         die();
     }
 
-    function createTable()
+    private function createTable(): bool
     {
         $this->db->query(
             '
@@ -337,7 +337,7 @@ class simpleauth
         return true;
     }
 
-    function deleteTable()
+    private function deleteTable(): bool
     {
         $this->db->query('DROP TABLE IF EXISTS ' . $this->config->JWT_TABLE);
         $this->db->query('DROP TABLE IF EXISTS ' . $this->config->JWT_THROTTLE_TABLE);
@@ -413,7 +413,7 @@ class simpleauth
         return $_SERVER['REMOTE_ADDR'] ?? '';
     }
 
-    function createUser(string $login, string $password): bool
+    public function createUser(string $login, string $password): bool
     {
         if (
             $this->db->fetch_var(
@@ -444,7 +444,7 @@ class simpleauth
         return true;
     }
 
-    function deleteUser(string $login): bool
+    public function deleteUser(string $login): bool
     {
         if (
             $this->db->fetch_var(
@@ -481,7 +481,7 @@ class simpleauth
         ];
     }
 
-    function getUserIdFromAccessToken(?string $access_token): mixed
+    private function getUserIdFromAccessToken(?string $access_token): mixed
     {
         try {
             $data = JWT::decode(
@@ -494,7 +494,7 @@ class simpleauth
         }
     }
 
-    function getUserLoginFromAccessToken(?string $access_token): mixed
+    private function getUserLoginFromAccessToken(?string $access_token): mixed
     {
         try {
             $data = JWT::decode(
@@ -507,12 +507,12 @@ class simpleauth
         }
     }
 
-    function isLoggedIn()
+    public function isLoggedIn(): bool
     {
         return $this->getCurrentUserId() !== null;
     }
 
-    function getCurrentUserId()
+    public function getCurrentUserId(): mixed
     {
         // this function can be called from within the api (via a rest call) or directly via php
         $token = null;

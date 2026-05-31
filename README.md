@@ -114,6 +114,8 @@ use vielhuber\simpleauth\simpleauth;
 $auth = new simpleauth(config: __DIR__ . '/../.env', table: 'users', login: 'email', ttl: 30, uuid: false);
 $auth->isLoggedIn();
 $auth->getCurrentUserId();
+$auth->createUser('david@vielhuber.de', 'secret2');
+$auth->deleteUser('david@vielhuber.de');
 ```
 
 ## frontend
