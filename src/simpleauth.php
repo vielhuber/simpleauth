@@ -6,6 +6,8 @@ namespace vielhuber\simpleauth;
 use vielhuber\dbhelper\dbhelper;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
 use ParagonIE\ConstantTime\Base64UrlSafe;
 use Symfony\Component\Serializer\SerializerInterface;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
@@ -55,7 +57,8 @@ class simpleauth
         false|array $passkey = [
             'table' => 'users_passkeys',
             'table_challenge' => 'users_passkeys_challenges'
-        ]
+        ],
+        false|array $captcha = false
     )
     {
         $dotenv = \Dotenv\Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config ?? ''));
@@ -96,6 +99,10 @@ class simpleauth
             $passkey === false
                 ? 'users_passkeys_challenges'
                 : (string) ($passkey['table_challenge'] ?? $passkey_table . '_challenges');
+        $this->config->JWT_CAPTCHA = $captcha !== false;
+        $this->config->JWT_CAPTCHA_PROVIDER = $captcha === false ? null : (string) ($captcha['provider'] ?? 'hcaptcha');
+        $this->config->JWT_CAPTCHA_SITEKEY = $captcha === false ? null : (string) ($captcha['sitekey'] ?? '');
+        $this->config->JWT_CAPTCHA_SECRET = $captcha === false ? null : (string) ($captcha['secret'] ?? '');
     }
 
     public function init(): void
@@ -214,6 +221,16 @@ class simpleauth
             $password = (string) $this->apiInput('password');
             if ($login == '' || $password == '') {
                 throw new \Exception('login or password missing');
+            }
+            if (!$this->captchaValid()) {
+                return $this->apiResponse(
+                    [
+                        'success' => false,
+                        'message' => 'captcha not successful',
+                        'public_message' => 'Captcha nicht erfolgreich'
+                    ],
+                    401
+                );
             }
             if ($this->throttleReached($login)) {
                 return $this->apiResponse(
@@ -825,6 +842,49 @@ class simpleauth
     {
         $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         return [$scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')];
+    }
+
+    private function captchaEnabled(): bool
+    {
+        return
+            $this->config->JWT_CAPTCHA === true;
+    }
+
+    private function captchaValid(): bool
+    {
+        if (!$this->captchaEnabled()) {
+            return true;
+        }
+        if ($this->config->JWT_CAPTCHA_PROVIDER !== 'hcaptcha' || $this->config->JWT_CAPTCHA_SECRET === '') {
+            return false;
+        }
+        $token = (string) ($this->apiInput('h-captcha-response') ?? '');
+        if ($token === '') {
+            return false;
+        }
+        return $this->captchaVerifyHcaptcha($token);
+    }
+
+    private function captchaVerifyHcaptcha(string $token): bool
+    {
+        $form_params = [
+            'secret' => $this->config->JWT_CAPTCHA_SECRET,
+            'response' => $token,
+            'remoteip' => $this->throttleIpAddress()
+        ];
+        if ($this->config->JWT_CAPTCHA_SITEKEY !== '') {
+            $form_params['sitekey'] = $this->config->JWT_CAPTCHA_SITEKEY;
+        }
+        try {
+            $response = (new Client())->request('POST', 'https://api.hcaptcha.com/siteverify', [
+                'form_params' => $form_params,
+                'timeout' => 5
+            ]);
+            $data = json_decode((string) $response->getBody(), true);
+            return is_array($data) && ($data['success'] ?? false) === true;
+        } catch (GuzzleException $e) {
+            return false;
+        }
     }
 
     private function throttleEnabled(): bool

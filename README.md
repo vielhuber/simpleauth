@@ -87,6 +87,20 @@ $auth = new simpleauth(
 );
 ```
 
+captcha validation is disabled by default. \
+you can enable [hCaptcha](https://www.hcaptcha.com):
+
+```php
+$auth = new simpleauth(
+    /* ... */
+    captcha: [
+        'provider' => 'hcaptcha',
+        'sitekey' => 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        'secret' => 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+    ]
+);
+```
+
 passkeys are supported via WebAuthn and are available after running `migrate`. Browsers require a secure context for passkeys, except on localhost. You can disable passkeys with `passkey: false` or adjust the table names with `passkey`:
 
 ```php
@@ -99,22 +113,20 @@ $auth = new simpleauth(
 );
 ```
 
-if `table_challenge` is omitted, it is derived from `table` by appending `_challenges`. The relying party id, relying party name and allowed origin are derived automatically from the current request host and scheme.
-
 ## routes
 
 the following routes are provided automatically:
 
-| route                            | method | arguments      | header                      | response                                                                                                                                                                |
-| -------------------------------- | ------ | -------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/auth/login`                    | POST   | email password | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
-| `/auth/refresh`                  | POST   | --             | Authorization: Bearer token | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
-| `/auth/logout`                   | POST   | --             | Authorization: Bearer token | `([ 'success' => true, 'message' => 'logout successful', 'public_message' => '...' ], 200)`                                                                             |
-| `/auth/check`                    | POST   | access_token   | --                          | `([ 'success' => true, 'message' => 'valid token', 'public_message' => '...', 'data' => [ 'expires_in' => 3600, 'user_id' => 42, 'client_id' => 7000000 ] ], 200)`      |
-| `/auth/passkey-register-options` | POST   | --             | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey registration options created', 'public_message' => '...', 'data' => [ 'publicKey' => [] ] ], 200)`                         |
-| `/auth/passkey-register`         | POST   | credential     | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey registered', 'public_message' => '...' ], 200)`                                                                            |
-| `/auth/passkey-login-options`    | POST   | email optional | --                          | `([ 'success' => true, 'message' => 'passkey login options created', 'public_message' => '...', 'data' => [ 'publicKey' => [] ] ], 200)`                                |
-| `/auth/passkey-login`            | POST   | credential     | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
+| route                            | method | arguments                         | header                      | response                                                                                                                                                                |
+| -------------------------------- | ------ | --------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/auth/login`                    | POST   | email password h-captcha-response | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
+| `/auth/refresh`                  | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
+| `/auth/logout`                   | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'logout successful', 'public_message' => '...' ], 200)`                                                                             |
+| `/auth/check`                    | POST   | access_token                      | --                          | `([ 'success' => true, 'message' => 'valid token', 'public_message' => '...', 'data' => [ 'expires_in' => 3600, 'user_id' => 42, 'client_id' => 7000000 ] ], 200)`      |
+| `/auth/passkey-register-options` | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey registration options created', 'public_message' => '...', 'data' => [ 'publicKey' => [] ] ], 200)`                         |
+| `/auth/passkey-register`         | POST   | credential                        | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey registered', 'public_message' => '...' ], 200)`                                                                            |
+| `/auth/passkey-login-options`    | POST   | email optional                    | --                          | `([ 'success' => true, 'message' => 'passkey login options created', 'public_message' => '...', 'data' => [ 'publicKey' => [] ] ], 200)`                                |
+| `/auth/passkey-login`            | POST   | credential                        | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
 
 ## tests
 
