@@ -101,12 +101,12 @@ $auth = new simpleauth(
 );
 ```
 
-passkeys are supported via WebAuthn and are available after running `migrate`. Browsers require a secure context for passkeys, except on localhost. You can disable passkeys with `passkey: false` or adjust the table names with `passkey`:
+passkeys are supported via WebAuthn and are available after running `migrate`. Browsers require a secure context for passkeys, except on localhost. You can disable passkeys with `passkeys: false` or adjust the table names with `passkeys`:
 
 ```php
 $auth = new simpleauth(
     /* ... */
-    passkey: [
+    passkeys: [
         'table' => 'users_passkeys',
         'table_challenge' => 'users_passkeys_challenges'
     ]

@@ -54,7 +54,7 @@ class simpleauth
             'minutes' => 15,
             'table' => 'users_login_attempts'
         ],
-        false|array $passkey = [
+        false|array $passkeys = [
             'table' => 'users_passkeys',
             'table_challenge' => 'users_passkeys_challenges'
         ],
@@ -92,13 +92,13 @@ class simpleauth
         $this->config->JWT_THROTTLE_ATTEMPTS = $throttle === false ? 5 : (int) ($throttle['attempts'] ?? 5);
         $this->config->JWT_THROTTLE_MINUTES = $throttle === false ? 15 : (int) ($throttle['minutes'] ?? 15);
         $this->config->JWT_THROTTLE_TABLE = $throttle === false ? 'users_login_attempts' : (string) ($throttle['table'] ?? 'users_login_attempts');
-        $this->config->JWT_PASSKEY = $passkey !== false;
-        $passkey_table = $passkey === false ? 'users_passkeys' : (string) ($passkey['table'] ?? 'users_passkeys');
-        $this->config->JWT_PASSKEY_TABLE = $passkey_table;
+        $this->config->JWT_PASSKEY = $passkeys !== false;
+        $passkeys_table = $passkeys === false ? 'users_passkeys' : (string) ($passkeys['table'] ?? 'users_passkeys');
+        $this->config->JWT_PASSKEY_TABLE = $passkeys_table;
         $this->config->JWT_PASSKEY_CHALLENGE_TABLE =
-            $passkey === false
+            $passkeys === false
                 ? 'users_passkeys_challenges'
-                : (string) ($passkey['table_challenge'] ?? $passkey_table . '_challenges');
+                : (string) ($passkeys['table_challenge'] ?? $passkeys_table . '_challenges');
         $this->config->JWT_CAPTCHA = $captcha !== false;
         $this->config->JWT_CAPTCHA_PROVIDER = $captcha === false ? null : (string) ($captcha['provider'] ?? 'hcaptcha');
         $this->config->JWT_CAPTCHA_SITEKEY = $captcha === false ? null : (string) ($captcha['sitekey'] ?? '');
