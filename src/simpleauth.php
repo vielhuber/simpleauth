@@ -611,6 +611,11 @@ class simpleauth
         die();
     }
 
+    private function dbIsSqlite(): bool
+    {
+        return strtolower((string) $this->config->DB_CONNECTION) === 'sqlite';
+    }
+
     private function createTable(): bool
     {
         $this->db->query(
@@ -620,7 +625,7 @@ class simpleauth
                 '
             (
                 id ' .
-                ($this->config->JWT_UUID === true ? 'VARCHAR(36)' : 'SERIAL') .
+                ($this->config->JWT_UUID === true ? 'VARCHAR(36)' : ($this->dbIsSqlite() ? 'INTEGER' : 'SERIAL')) .
                 ' PRIMARY KEY,
                 ' .
                 $this->config->JWT_LOGIN .
@@ -635,11 +640,12 @@ class simpleauth
                 $this->config->JWT_THROTTLE_TABLE .
                 '
             (
-                id SERIAL PRIMARY KEY,
+                id ' .
+                ($this->dbIsSqlite() ? 'INTEGER' : 'SERIAL') .
+                ' PRIMARY KEY,
                 login_identifier varchar(255) NOT NULL,
                 ip_address varchar(45) NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                INDEX login_attempts_lookup (login_identifier, ip_address, created_at)
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         '
         );
@@ -649,16 +655,16 @@ class simpleauth
                 $this->config->JWT_PASSKEY_TABLE .
                 '
             (
-                id SERIAL PRIMARY KEY,
+                id ' .
+                ($this->dbIsSqlite() ? 'INTEGER' : 'SERIAL') .
+                ' PRIMARY KEY,
                 user_id varchar(64) NOT NULL,
                 login_identifier varchar(255) NOT NULL,
                 credential_id varchar(512) NOT NULL,
                 credential_record LONGTEXT NOT NULL,
                 counter int NOT NULL DEFAULT 0,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                last_used_at TIMESTAMP NULL DEFAULT NULL,
-                UNIQUE KEY passkey_credential_id (credential_id),
-                INDEX passkey_user_id (user_id)
+                last_used_at TIMESTAMP NULL DEFAULT NULL
             )
         '
         );
@@ -668,16 +674,29 @@ class simpleauth
                 $this->config->JWT_PASSKEY_CHALLENGE_TABLE .
                 '
             (
-                id SERIAL PRIMARY KEY,
+                id ' .
+                ($this->dbIsSqlite() ? 'INTEGER' : 'SERIAL') .
+                ' PRIMARY KEY,
                 type varchar(20) NOT NULL,
                 user_id varchar(64) NULL,
                 login_identifier varchar(255) NULL,
                 challenge varchar(255) NOT NULL,
                 options LONGTEXT NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                INDEX passkey_challenge_lookup (type, challenge, user_id)
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         '
+        );
+        $this->db->create_index(
+            $this->config->JWT_THROTTLE_TABLE,
+            'login_attempts_lookup',
+            ['login_identifier', 'ip_address', 'created_at']
+        );
+        $this->db->create_index($this->config->JWT_PASSKEY_TABLE, 'passkey_credential_id', ['credential_id'], true);
+        $this->db->create_index($this->config->JWT_PASSKEY_TABLE, 'passkey_user_id', ['user_id']);
+        $this->db->create_index(
+            $this->config->JWT_PASSKEY_CHALLENGE_TABLE,
+            'passkey_challenge_lookup',
+            ['type', 'challenge', 'user_id']
         );
         return true;
     }

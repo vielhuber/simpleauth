@@ -3,7 +3,7 @@
     "description": "Simple php authentication library.",
     "require": {
         "php": "^8.5",
-        "vielhuber/dbhelper": "^2.4.6",
+        "vielhuber/dbhelper": "^2.4.8",
         "firebase/php-jwt": "^7.0.5",
         "vielhuber/comparehelper": "^1.1.9",
         "guzzlehttp/guzzle": "^7.10.3",
