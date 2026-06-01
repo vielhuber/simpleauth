@@ -181,7 +181,7 @@ class simpleauth
             [
                 'success' => false,
                 'message' => 'unknown route',
-                'public_message' => 'Unbekannte Route!'
+                'public_message' => 'Unknown route!'
             ],
             404
         );
@@ -253,7 +253,7 @@ class simpleauth
                     [
                         'success' => false,
                         'message' => 'captcha not successful',
-                        'public_message' => 'Captcha nicht erfolgreich'
+                        'public_message' => 'Captcha not successful'
                     ],
                     401
                 );
@@ -263,7 +263,7 @@ class simpleauth
                     [
                         'success' => false,
                         'message' => 'too many login attempts',
-                        'public_message' => 'Zu viele Loginversuche. Bitte später erneut versuchen.'
+                        'public_message' => 'Too many login attempts. Please try again later.'
                     ],
                     429
                 );
@@ -282,7 +282,7 @@ class simpleauth
                 [
                     'success' => true,
                     'message' => 'auth successful',
-                    'public_message' => 'Erfolgreich eingeloggt',
+                    'public_message' => 'Successfully logged in',
                     'data' => $data
                 ],
                 200
@@ -292,7 +292,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'auth not successful',
-                    'public_message' => 'Nicht erfolgreich'
+                    'public_message' => 'Not successful'
                 ],
                 401
             );
@@ -309,7 +309,7 @@ class simpleauth
                 [
                     'success' => true,
                     'message' => 'auth successful',
-                    'public_message' => 'Erfolgreich eingeloggt',
+                    'public_message' => 'Successfully logged in',
                     'data' => $data
                 ],
                 200
@@ -319,7 +319,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'invalid token',
-                    'public_message' => 'Falsches Token'
+                    'public_message' => 'Invalid token'
                 ],
                 401
             );
@@ -334,7 +334,7 @@ class simpleauth
                 [
                     'success' => true,
                     'message' => 'logout successful',
-                    'public_message' => 'Erfolgreich ausgeloggt'
+                    'public_message' => 'Successfully logged out'
                 ],
                 200
             );
@@ -343,7 +343,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'logout not successful',
-                    'public_message' => 'Nicht erfolgreich ausgeloggt'
+                    'public_message' => 'Logout not successful'
                 ],
                 401
             );
@@ -359,7 +359,7 @@ class simpleauth
                 [
                     'success' => true,
                     'message' => 'valid token',
-                    'public_message' => 'Korrektes Token',
+                    'public_message' => 'Valid token',
                     'data' => [
                         'access_token' => $access_token,
                         'expires_in' => $this->config->JWT_TTL,
@@ -373,7 +373,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'invalid token',
-                    'public_message' => 'Falsches Token'
+                    'public_message' => 'Invalid token'
                 ],
                 401
             );
@@ -415,7 +415,7 @@ class simpleauth
                 [
                     'success' => true,
                     'message' => 'passkey registration options created',
-                    'public_message' => 'Passkey-Registrierung vorbereitet',
+                    'public_message' => 'Passkey registration prepared',
                     'data' => [
                         'publicKey' => $public_key
                     ]
@@ -427,7 +427,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'passkey registration options not created',
-                    'public_message' => 'Passkey-Registrierung nicht vorbereitet'
+                    'public_message' => 'Passkey registration not prepared'
                 ],
                 401
             );
@@ -464,7 +464,7 @@ class simpleauth
                 [
                     'success' => true,
                     'message' => 'passkey registered',
-                    'public_message' => 'Passkey registriert'
+                    'public_message' => 'Passkey registered'
                 ],
                 200
             );
@@ -473,7 +473,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'passkey not registered',
-                    'public_message' => 'Passkey nicht registriert'
+                    'public_message' => 'Passkey not registered'
                 ],
                 401
             );
@@ -520,7 +520,7 @@ class simpleauth
                 [
                     'success' => true,
                     'message' => 'passkey login options created',
-                    'public_message' => 'Passkey-Login vorbereitet',
+                    'public_message' => 'Passkey login prepared',
                     'data' => [
                         'publicKey' => $public_key
                     ]
@@ -532,7 +532,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'passkey login options not created',
-                    'public_message' => 'Passkey-Login nicht vorbereitet'
+                    'public_message' => 'Passkey login not prepared'
                 ],
                 401
             );
@@ -593,7 +593,7 @@ class simpleauth
                 [
                     'success' => true,
                     'message' => 'auth successful',
-                    'public_message' => 'Erfolgreich eingeloggt',
+                    'public_message' => 'Successfully logged in',
                     'data' => $data
                 ],
                 200
@@ -603,7 +603,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'passkey auth not successful',
-                    'public_message' => 'Passkey nicht erfolgreich'
+                    'public_message' => 'Passkey not successful'
                 ],
                 401
             );
@@ -623,7 +623,7 @@ class simpleauth
                 [
                     'success' => true,
                     'message' => 'passkey deleted',
-                    'public_message' => 'Passkey gelöscht'
+                    'public_message' => 'Passkey deleted'
                 ],
                 200
             );
@@ -632,7 +632,7 @@ class simpleauth
                 [
                     'success' => false,
                     'message' => 'passkey not deleted',
-                    'public_message' => 'Passkey nicht gelöscht'
+                    'public_message' => 'Passkey not deleted'
                 ],
                 401
             );
