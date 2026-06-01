@@ -137,7 +137,7 @@ php -S localhost:8007 -t auth
 
 ## further usage
 
-you can use the following functions inside your own application (they do not need any database lookups):
+you can use the following functions inside your own application:
 
 ```php
 require __DIR__ . '/vendor/autoload.php';
@@ -146,8 +146,11 @@ $auth = new simpleauth(config: __DIR__ . '/../.env', table: 'users', login: 'ema
 $auth->isLoggedIn();
 $auth->getCurrentUserId();
 $auth->migrate();
-$auth->createUser('david@vielhuber.de', 'secret2');
-$auth->deleteUser('david@vielhuber.de');
+$auth->createUser(login: 'david@vielhuber.de', password: 'secret2');
+$auth->getPasskeys(login: 'david@vielhuber.de');
+$auth->deletePasskey(login: 'david@vielhuber.de', passkey_id: 1);
+$auth->deletePasskeys(login: 'david@vielhuber.de');
+$auth->deleteUser(login: 'david@vielhuber.de');
 ```
 
 ## frontend

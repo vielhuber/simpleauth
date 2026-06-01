@@ -239,6 +239,15 @@ class UnitTest extends \PHPUnit\Framework\TestCase
         );
     }
 
+    function testPasskeyManagement()
+    {
+        $auth = new \vielhuber\simpleauth\simpleauth(__DIR__ . '/../.env', 'users', 'email', 30, false);
+        comparehelper::assertEquals([], $auth->getPasskeys(login: 'david@vielhuber.de'));
+        comparehelper::assertEquals(true, $auth->deletePasskeys(login: 'david@vielhuber.de'));
+        $this->expectException(\Exception::class);
+        $auth->deletePasskey(login: 'david@vielhuber.de', passkey_id: 1);
+    }
+
     private function request($method = 'GET', $route = '/', $data = [], $headers = [])
     {
         $client = new Client([

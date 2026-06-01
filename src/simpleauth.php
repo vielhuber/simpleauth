@@ -1000,6 +1000,62 @@ class simpleauth
         return $_SERVER['REMOTE_ADDR'] ?? '';
     }
 
+    public function getPasskeys(string $login): array
+    {
+        $user_id = $this->getUserIdByLogin($login);
+        return array_map(
+            function (array $passkey): array {
+                return [
+                    'id' => $passkey['id'],
+                    'login_identifier' => $passkey['login_identifier'],
+                    'counter' => (int) $passkey['counter'],
+                    'created_at' => $passkey['created_at'],
+                    'last_used_at' => $passkey['last_used_at']
+                ];
+            },
+            $this->db->fetch_all(
+                'SELECT id, login_identifier, counter, created_at, last_used_at FROM ' .
+                    $this->config->JWT_PASSKEY_TABLE .
+                    ' WHERE user_id = ? ORDER BY created_at DESC, id DESC',
+                $user_id
+            )
+        );
+    }
+
+    public function deletePasskey(string $login, string|int $passkey_id): bool
+    {
+        $user_id = $this->getUserIdByLogin($login);
+        if (
+            $this->db->fetch_var(
+                'SELECT COUNT(id) FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE id = ? AND user_id = ?',
+                $passkey_id,
+                $user_id
+            ) == 0
+        ) {
+            throw new \Exception('passkey does not exist');
+        }
+        $this->db->query(
+            'DELETE FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE id = ? AND user_id = ?',
+            $passkey_id,
+            $user_id
+        );
+        return true;
+    }
+
+    public function deletePasskeys(string $login): bool
+    {
+        $user_id = $this->getUserIdByLogin($login);
+        $this->db->query(
+            'DELETE FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE user_id = ?',
+            $user_id
+        );
+        $this->db->query(
+            'DELETE FROM ' . $this->config->JWT_PASSKEY_CHALLENGE_TABLE . ' WHERE user_id = ?',
+            $user_id
+        );
+        return true;
+    }
+
     public function createUser(string $login, string $password): bool
     {
         if (
@@ -1033,19 +1089,31 @@ class simpleauth
 
     public function deleteUser(string $login): bool
     {
-        if (
-            $this->db->fetch_var(
-                'SELECT COUNT(id) FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
-                $login
-            ) == 0
-        ) {
+        $user = $this->db->fetch_row(
+            'SELECT id FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
+            $login
+        );
+        if (empty($user)) {
             throw new \Exception('user does not exists');
         }
+        $this->deletePasskeys($login);
         $this->db->query(
             'DELETE FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
             $login
         );
         return true;
+    }
+
+    private function getUserIdByLogin(string $login): string
+    {
+        $user = $this->db->fetch_row(
+            'SELECT id FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
+            $login
+        );
+        if (empty($user)) {
+            throw new \Exception('user does not exists');
+        }
+        return (string) $user['id'];
     }
 
     private function createAccessToken(string|int $user_id, string $user_login): array
