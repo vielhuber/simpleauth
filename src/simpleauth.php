@@ -170,6 +170,13 @@ class simpleauth
         ) {
             return $this->apiPasskeyLogin();
         }
+        if (
+            $this->passkeyEnabled() &&
+            $this->apiRequestMethod() === 'POST' &&
+            $this->apiRequestPath() === 'passkey-delete'
+        ) {
+            return $this->apiPasskeyDelete();
+        }
         return $this->apiResponse(
             [
                 'success' => false,
@@ -597,6 +604,35 @@ class simpleauth
                     'success' => false,
                     'message' => 'passkey auth not successful',
                     'public_message' => 'Passkey nicht erfolgreich'
+                ],
+                401
+            );
+        }
+    }
+
+    private function apiPasskeyDelete()
+    {
+        try {
+            $user_login = (string) $this->getUserLoginFromAccessToken($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+            $passkey_id = $this->apiInput('id') ?? $this->apiInput('passkey_id');
+            if ($passkey_id === null || $passkey_id === '') {
+                throw new \Exception('passkey id missing');
+            }
+            $this->deletePasskey(login: $user_login, passkey_id: $passkey_id);
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'passkey deleted',
+                    'public_message' => 'Passkey gelöscht'
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'passkey not deleted',
+                    'public_message' => 'Passkey nicht gelöscht'
                 ],
                 401
             );
@@ -1075,20 +1111,6 @@ class simpleauth
         return true;
     }
 
-    public function deletePasskeys(string $login): bool
-    {
-        $user_id = $this->getUserIdByLogin($login);
-        $this->db->query(
-            'DELETE FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE user_id = ?',
-            $user_id
-        );
-        $this->db->query(
-            'DELETE FROM ' . $this->config->JWT_PASSKEY_CHALLENGE_TABLE . ' WHERE user_id = ?',
-            $user_id
-        );
-        return true;
-    }
-
     public function createUser(string $login, string $password): bool
     {
         if (
@@ -1129,7 +1151,11 @@ class simpleauth
         if (empty($user)) {
             throw new \Exception('user does not exists');
         }
-        $this->deletePasskeys($login);
+        $this->db->query('DELETE FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE user_id = ?', (string) $user['id']);
+        $this->db->query(
+            'DELETE FROM ' . $this->config->JWT_PASSKEY_CHALLENGE_TABLE . ' WHERE user_id = ?',
+            (string) $user['id']
+        );
         $this->db->query(
             'DELETE FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
             $login

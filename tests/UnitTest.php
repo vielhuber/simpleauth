@@ -239,11 +239,31 @@ class UnitTest extends \PHPUnit\Framework\TestCase
         );
     }
 
+    function testPasskeyDelete()
+    {
+        $access_token = $this->request('POST', '/auth/login', [
+            'email' => 'david@vielhuber.de',
+            'password' => 'secret'
+        ])['response']['data']['access_token'];
+        comparehelper::assertEquals(
+            [
+                'response' => [
+                    'success' => false,
+                    'message' => 'passkey not deleted',
+                    'public_message' => '#STR#'
+                ],
+                'code' => 401
+            ],
+            $this->request('POST', '/auth/passkey-delete', ['id' => 1], [
+                'Authorization' => 'Bearer ' . $access_token
+            ])
+        );
+    }
+
     function testPasskeyManagement()
     {
         $auth = new \vielhuber\simpleauth\simpleauth(__DIR__ . '/../.env', 'users', 'email', 30, false);
         comparehelper::assertEquals([], $auth->getPasskeys(login: 'david@vielhuber.de'));
-        comparehelper::assertEquals(true, $auth->deletePasskeys(login: 'david@vielhuber.de'));
         $this->expectException(\Exception::class);
         $auth->deletePasskey(login: 'david@vielhuber.de', passkey_id: 1);
     }

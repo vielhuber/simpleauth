@@ -127,6 +127,7 @@ the following routes are provided automatically:
 | `/auth/passkey-register`         | POST   | credential                        | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey registered', 'public_message' => '...' ], 200)`                                                                            |
 | `/auth/passkey-login-options`    | POST   | email optional                    | --                          | `([ 'success' => true, 'message' => 'passkey login options created', 'public_message' => '...', 'data' => [ 'publicKey' => [] ] ], 200)`                                |
 | `/auth/passkey-login`            | POST   | credential                        | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
+| `/auth/passkey-delete`           | POST   | id                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey deleted', 'public_message' => '...' ], 200)`                                                                               |
 
 ## tests
 
@@ -146,14 +147,14 @@ $auth = new simpleauth(config: __DIR__ . '/../.env', table: 'users', login: 'ema
 $auth->isLoggedIn();
 $auth->getCurrentUserId();
 $auth->migrate();
+
 $auth->createUser(login: 'david@vielhuber.de', password: 'secret2');
 $auth->getPasskeys(login: 'david@vielhuber.de');
 $auth->deletePasskey(login: 'david@vielhuber.de', passkey_id: 1);
-$auth->deletePasskeys(login: 'david@vielhuber.de');
 $auth->deleteUser(login: 'david@vielhuber.de');
 ```
 
 ## frontend
 
 if you need a neat frontend library that works together with\
-`simpleauth` seemlessly, try out [jwtbutler](https://github.com/vielhuber/jwtbutler). The library exposes `passkeyRegister()` for logged-in users and `passkeyLogin()` for passwordless login.
+`simpleauth` seemlessly, try out [jwtbutler](https://github.com/vielhuber/jwtbutler).
