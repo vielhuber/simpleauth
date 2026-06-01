@@ -876,7 +876,7 @@ class simpleauth
 
     private function passkeyRpId(): string
     {
-        return explode(':', $_SERVER['HTTP_HOST'] ?? 'localhost')[0];
+        return explode(':', $this->passkeyHost())[0];
     }
 
     private function passkeyRpName(): string
@@ -886,8 +886,41 @@ class simpleauth
 
     private function passkeyOrigins(): array
     {
-        $scheme = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
-        return [$scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')];
+        $host = $this->passkeyHost();
+        $scheme = $this->passkeyScheme();
+        $origins = [$scheme . '://' . $host];
+        if ($scheme === 'http' && !in_array(explode(':', $host)[0], ['localhost', '127.0.0.1'], true)) {
+            $origins[] = 'https://' . $host;
+        }
+        return array_values(array_unique($origins));
+    }
+
+    private function passkeyHost(): string
+    {
+        $host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? 'localhost';
+        return trim(explode(',', $host)[0]);
+    }
+
+    private function passkeyScheme(): string
+    {
+        $forwarded_proto = strtolower(trim(explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0]));
+        if (in_array($forwarded_proto, ['http', 'https'], true)) {
+            return $forwarded_proto;
+        }
+        $cf_visitor = json_decode((string) ($_SERVER['HTTP_CF_VISITOR'] ?? ''), true);
+        if (is_array($cf_visitor) && in_array(($cf_visitor['scheme'] ?? ''), ['http', 'https'], true)) {
+            return $cf_visitor['scheme'];
+        }
+        if (in_array(strtolower((string) ($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '')), ['on', '1'], true)) {
+            return 'https';
+        }
+        if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+            return 'https';
+        }
+        if ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443') {
+            return 'https';
+        }
+        return 'http';
     }
 
     private function captchaEnabled(): bool
