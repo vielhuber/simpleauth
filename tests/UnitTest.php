@@ -8,12 +8,16 @@ class UnitTest extends \PHPUnit\Framework\TestCase
     {
         $dotenv = \Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
         $dotenv->load();
-        shell_exec('php ./auth/index.php migrate');
-        shell_exec('php ./auth/index.php create david@vielhuber.de secret');
+        shell_exec(escapeshellarg(PHP_BINARY) . ' ./auth/index.php migrate');
+        shell_exec(escapeshellarg(PHP_BINARY) . ' ./auth/index.php create david@vielhuber.de secret');
     }
 
     function testLogin()
     {
+        $response = $this->request('POST', '/auth/login', [
+            'email' => 'david@vielhuber.de',
+            'password' => 'secret'
+        ]);
         comparehelper::assertEquals(
             [
                 'response' => [
@@ -24,11 +28,9 @@ class UnitTest extends \PHPUnit\Framework\TestCase
                 ],
                 'code' => 200
             ],
-            $this->request('POST', '/auth/login', [
-                'email' => 'david@vielhuber.de',
-                'password' => 'secret'
-            ])
+            $response
         );
+        $this->assertSame(60 * 60 * 24 * 30, $response['response']['data']['expires_in']);
     }
 
     function testLoginFailure()
@@ -139,6 +141,23 @@ class UnitTest extends \PHPUnit\Framework\TestCase
             ],
             $this->request('POST', '/auth/logout', null, [
                 'Authorization' => 'Bearer ' . $access_token
+            ])
+        );
+    }
+
+    function testLogoutFailure()
+    {
+        comparehelper::assertEquals(
+            [
+                'response' => [
+                    'success' => false,
+                    'message' => 'logout not successful',
+                    'public_message' => '#STR#'
+                ],
+                'code' => 401
+            ],
+            $this->request('POST', '/auth/logout', null, [
+                'Authorization' => 'Bearer foo'
             ])
         );
     }

@@ -32,7 +32,7 @@ now simply create the following files inside a new folder called `auth` inside y
 <?php
 require_once __DIR__ . '/../vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
-$auth = new simpleauth(config: __DIR__ . '/../.env', table: 'users', login: 'email', ttl: 30, uuid: false);
+$auth = new simpleauth(config: __DIR__ . '/../.env', table: 'users', login: 'email', ttl: 1, uuid: false);
 $auth->init();
 ```
 
@@ -73,6 +73,14 @@ and you should be done (a test user `'david@vielhuber.de'` with the password `'s
 you can now fully authenticate with the routes below.\
 if you want to authenticate via username instead of email, simply change `login` to `'username'`.\
 if you need uuids instead of integers as your user ids, change `uuid` to `true`.
+access tokens are valid for one day by default. you can adjust this with `ttl`. cors is enabled for all origins by default and can be restricted with `cors`. use `cors: true` or `cors: '*'` to allow all origins. Use `cors: false` to disable cors headers:
+
+```php
+$auth = new simpleauth(
+    /* ... */
+    cors: ['https://example.tld']
+);
+```
 
 login throttling is enabled by default: after 5 failed login attempts per login and IP within 15 minutes, `/auth/login` responds with status `429`. You can disable it with `throttle: false` or adjust the limits with `throttle`:
 
@@ -117,17 +125,17 @@ $auth = new simpleauth(
 
 the following routes are provided automatically:
 
-| route                            | method | arguments                         | header                      | response                                                                                                                                                                |
-| -------------------------------- | ------ | --------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/auth/login`                    | POST   | email password h-captcha-response | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
-| `/auth/refresh`                  | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
-| `/auth/logout`                   | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'logout successful', 'public_message' => '...' ], 200)`                                                                             |
-| `/auth/check`                    | POST   | access_token                      | --                          | `([ 'success' => true, 'message' => 'valid token', 'public_message' => '...', 'data' => [ 'expires_in' => 3600, 'user_id' => 42, 'client_id' => 7000000 ] ], 200)`      |
-| `/auth/passkey-register-options` | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey registration options created', 'public_message' => '...', 'data' => [ 'publicKey' => [] ] ], 200)`                         |
-| `/auth/passkey-register`         | POST   | credential                        | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey registered', 'public_message' => '...' ], 200)`                                                                            |
-| `/auth/passkey-login-options`    | POST   | email optional                    | --                          | `([ 'success' => true, 'message' => 'passkey login options created', 'public_message' => '...', 'data' => [ 'publicKey' => [] ] ], 200)`                                |
-| `/auth/passkey-login`            | POST   | credential                        | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 3600, 'user_id' => 42 ] ], 200)` |
-| `/auth/passkey-delete`           | POST   | id                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey deleted', 'public_message' => '...' ], 200)`                                                                               |
+| route                            | method | arguments                         | header                      | response                                                                                                                                                                 |
+| -------------------------------- | ------ | --------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/auth/login`                    | POST   | email password h-captcha-response | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 86400, 'user_id' => 42 ] ], 200)` |
+| `/auth/refresh`                  | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 86400, 'user_id' => 42 ] ], 200)` |
+| `/auth/logout`                   | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'logout successful', 'public_message' => '...' ], 200)`                                                                              |
+| `/auth/check`                    | POST   | access_token                      | --                          | `([ 'success' => true, 'message' => 'valid token', 'public_message' => '...', 'data' => [ 'expires_in' => 86400, 'user_id' => 42, 'client_id' => 7000000 ] ], 200)`      |
+| `/auth/passkey-register-options` | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey registration options created', 'public_message' => '...', 'data' => [ 'publicKey' => [] ] ], 200)`                          |
+| `/auth/passkey-register`         | POST   | credential                        | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey registered', 'public_message' => '...' ], 200)`                                                                             |
+| `/auth/passkey-login-options`    | POST   | email optional                    | --                          | `([ 'success' => true, 'message' => 'passkey login options created', 'public_message' => '...', 'data' => [ 'publicKey' => [] ] ], 200)`                                 |
+| `/auth/passkey-login`            | POST   | credential                        | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 86400, 'user_id' => 42 ] ], 200)` |
+| `/auth/passkey-delete`           | POST   | id                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey deleted', 'public_message' => '...' ], 200)`                                                                                |
 
 ## tests
 
@@ -143,7 +151,7 @@ you can use the following functions inside your own application:
 ```php
 require __DIR__ . '/vendor/autoload.php';
 use vielhuber\simpleauth\simpleauth;
-$auth = new simpleauth(config: __DIR__ . '/../.env', table: 'users', login: 'email', ttl: 30, uuid: false);
+$auth = new simpleauth(config: __DIR__ . '/../.env', table: 'users', login: 'email', ttl: 1, uuid: false);
 $auth->isLoggedIn();
 $auth->getCurrentUserId();
 $auth->migrate();

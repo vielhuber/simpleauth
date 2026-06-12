@@ -28,19 +28,6 @@ use Webauthn\PublicKeyCredentialRequestOptions;
 use Webauthn\PublicKeyCredentialRpEntity;
 use Webauthn\PublicKeyCredentialUserEntity;
 
-// cors
-if (
-    !(headers_sent() || ob_get_length() > 0) &&
-    (PHP_SAPI != 'cli' || strpos($_SERVER['argv'][0], 'phpunit') === false)
-) {
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization');
-    if (@$_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
-        die();
-    }
-}
-
 class simpleauth
 {
     private object $config;
@@ -50,7 +37,7 @@ class simpleauth
         ?string $config = null,
         string $table = 'users',
         string $login = 'email',
-        int $ttl = 30,
+        int $ttl = 1,
         bool $uuid = false,
         false|array $throttle = [
             'attempts' => 5,
@@ -61,7 +48,8 @@ class simpleauth
             'table' => 'users_passkeys',
             'table_challenge' => 'users_passkeys_challenges'
         ],
-        false|array $captcha = false
+        false|array $captcha = false,
+        bool|string|array $cors = '*'
     ) {
         $dotenv = \Dotenv\Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config ?? ''));
         $dotenv->load();
@@ -106,6 +94,7 @@ class simpleauth
         $this->config->JWT_CAPTCHA_PROVIDER = $captcha === false ? null : (string) ($captcha['provider'] ?? 'hcaptcha');
         $this->config->JWT_CAPTCHA_SITEKEY = $captcha === false ? null : (string) ($captcha['sitekey'] ?? '');
         $this->config->JWT_CAPTCHA_SECRET = $captcha === false ? null : (string) ($captcha['secret'] ?? '');
+        $this->handleCors($cors);
     }
 
     public function init(): void
@@ -215,6 +204,47 @@ class simpleauth
     private function apiRequestMethod()
     {
         return @$_SERVER['REQUEST_METHOD'];
+    }
+
+    private function handleCors(bool|string|array $cors): void
+    {
+        if (
+            headers_sent() ||
+            ob_get_length() > 0 ||
+            (PHP_SAPI == 'cli' && strpos($_SERVER['argv'][0], 'phpunit') !== false)
+        ) {
+            return;
+        }
+
+        if ($cors === true || $cors === '*') {
+            header('Access-Control-Allow-Origin: *');
+            header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+            header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        }
+
+        $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+        if ($cors !== true && $cors !== '*' && $origin !== '' && $this->corsAllowed($origin, $cors)) {
+            header('Access-Control-Allow-Origin: ' . $origin);
+            header('Vary: Origin');
+            header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+            header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        }
+
+        if (($_SERVER['REQUEST_METHOD'] ?? '') == 'OPTIONS') {
+            die();
+        }
+    }
+
+    private function corsAllowed(string $origin, bool|string|array $cors): bool
+    {
+        if ($cors === false) {
+            return false;
+        }
+        if ($cors === true || $cors === '*') {
+            return true;
+        }
+        $origins = is_array($cors) ? $cors : [$cors];
+        return in_array($origin, $origins, true);
     }
 
     private function apiInput(string $key): mixed
@@ -329,7 +359,7 @@ class simpleauth
     private function apiLogout()
     {
         try {
-            // nothing happens :-)
+            $this->getUserIdFromAccessToken($_SERVER['HTTP_AUTHORIZATION'] ?? '');
             return $this->apiResponse(
                 [
                     'success' => true,
@@ -1177,10 +1207,11 @@ class simpleauth
 
     private function createAccessToken(string|int $user_id, string $user_login): array
     {
+        $expires_in = 60 * 60 * 24 * $this->config->JWT_TTL;
         $access_token = JWT::encode(
             [
                 'iss' => @$_SERVER['HTTP_HOST'], // issuer
-                'exp' => time() + 60 * 60 * 24 * $this->config->JWT_TTL, // ttl
+                'exp' => time() + $expires_in, // ttl
                 'sub' => $user_id,
                 'login' => $user_login
             ],
@@ -1190,7 +1221,7 @@ class simpleauth
 
         return [
             'access_token' => $access_token,
-            'expires_in' => $this->config->JWT_TTL,
+            'expires_in' => $expires_in,
             'user_id' => $user_id
         ];
     }
