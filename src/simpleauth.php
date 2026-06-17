@@ -94,6 +94,7 @@ class simpleauth
         $this->config->JWT_CAPTCHA_PROVIDER = $captcha === false ? null : (string) ($captcha['provider'] ?? 'hcaptcha');
         $this->config->JWT_CAPTCHA_SITEKEY = $captcha === false ? null : (string) ($captcha['sitekey'] ?? '');
         $this->config->JWT_CAPTCHA_SECRET = $captcha === false ? null : (string) ($captcha['secret'] ?? '');
+        $this->createTable();
         $this->handleCors($cors);
     }
 
@@ -752,19 +753,27 @@ class simpleauth
             )
         '
         );
-        $this->db->create_index(
+        $this->createIndexIfMissing(
             $this->config->JWT_THROTTLE_TABLE,
             'login_attempts_lookup',
             ['login_identifier', 'ip_address', 'created_at']
         );
-        $this->db->create_index($this->config->JWT_PASSKEY_TABLE, 'passkey_credential_id', ['credential_id'], true);
-        $this->db->create_index($this->config->JWT_PASSKEY_TABLE, 'passkey_user_id', ['user_id']);
-        $this->db->create_index(
+        $this->createIndexIfMissing($this->config->JWT_PASSKEY_TABLE, 'passkey_credential_id', ['credential_id'], true);
+        $this->createIndexIfMissing($this->config->JWT_PASSKEY_TABLE, 'passkey_user_id', ['user_id']);
+        $this->createIndexIfMissing(
             $this->config->JWT_PASSKEY_CHALLENGE_TABLE,
             'passkey_challenge_lookup',
             ['type', 'challenge', 'user_id']
         );
         return true;
+    }
+
+    private function createIndexIfMissing(string $table, string $index, array $columns, bool $unique = false): void
+    {
+        if ($this->db->has_index($table, $index)) {
+            return;
+        }
+        $this->db->create_index($table, $index, $columns, $unique);
     }
 
     private function deleteTable(): bool
