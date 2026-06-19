@@ -9,8 +9,7 @@ use Firebase\JWT\Key;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use ParagonIE\ConstantTime\Base64UrlSafe;
-use PHPMailer\PHPMailer\Exception as PHPMailerException;
-use PHPMailer\PHPMailer\PHPMailer;
+use vielhuber\mailhelper\mailhelper;
 use Symfony\Component\Serializer\SerializerInterface;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
@@ -104,6 +103,9 @@ class simpleauth
         $this->config->SMTP_ENCRYPTION = (string) ($_SERVER['SMTP_ENCRYPTION'] ?? 'tls');
         $this->config->SMTP_FROM_EMAIL = (string) ($_SERVER['SMTP_FROM_EMAIL'] ?? '');
         $this->config->SMTP_FROM_NAME = (string) ($_SERVER['SMTP_FROM_NAME'] ?? '');
+        $this->config->SMTP_TENANT_ID = (string) ($_SERVER['SMTP_TENANT_ID'] ?? '');
+        $this->config->SMTP_CLIENT_ID = (string) ($_SERVER['SMTP_CLIENT_ID'] ?? '');
+        $this->config->SMTP_CLIENT_SECRET = (string) ($_SERVER['SMTP_CLIENT_SECRET'] ?? '');
         $this->config->PASSWORD_RESET_URL = (string) ($_SERVER['PASSWORD_RESET_URL'] ?? '');
         $this->createTable();
         $this->handleCors($cors);
@@ -1458,31 +1460,38 @@ class simpleauth
         if ($this->config->SMTP !== true || $this->config->SMTP_HOST === '') {
             throw new \Exception('mail is not configured');
         }
-        $mailer = new PHPMailer(true);
-        try {
-            $mailer->isSMTP();
-            $mailer->Host = $this->config->SMTP_HOST;
-            $mailer->Port = $this->config->SMTP_PORT;
-            $mailer->CharSet = 'UTF-8';
-            if ($this->config->SMTP_USERNAME !== '') {
-                $mailer->SMTPAuth = true;
-                $mailer->Username = $this->config->SMTP_USERNAME;
-                $mailer->Password = $this->config->SMTP_PASSWORD;
-            }
-            if ($this->config->SMTP_ENCRYPTION !== '') {
-                $mailer->SMTPSecure = $this->config->SMTP_ENCRYPTION;
-            }
-            $mailer->setFrom(
-                $this->config->SMTP_FROM_EMAIL,
-                $this->config->SMTP_FROM_NAME
-            );
-            $mailer->addAddress($to);
-            $mailer->Subject = $subject;
-            $mailer->Body = $body;
-            $mailer->send();
-        } catch (PHPMailerException $e) {
-            throw new \Exception('mail not sent', 0, $e);
+        $mailbox = $this->config->SMTP_FROM_EMAIL !== ''
+            ? $this->config->SMTP_FROM_EMAIL
+            : $this->config->SMTP_USERNAME;
+        if ($mailbox === '') {
+            throw new \Exception('mail sender missing');
         }
+        $config = [
+            $mailbox => [
+                'smtp' => [
+                    'host' => $this->config->SMTP_HOST,
+                    'port' => $this->config->SMTP_PORT,
+                    'encryption' => $this->config->SMTP_ENCRYPTION
+                ]
+            ]
+        ];
+        if ($this->config->SMTP_TENANT_ID !== '') {
+            $config[$mailbox]['smtp']['tenant_id'] = $this->config->SMTP_TENANT_ID;
+            $config[$mailbox]['smtp']['client_id'] = $this->config->SMTP_CLIENT_ID;
+            $config[$mailbox]['smtp']['client_secret'] = $this->config->SMTP_CLIENT_SECRET;
+        }
+        if ($this->config->SMTP_TENANT_ID === '') {
+            $config[$mailbox]['smtp']['username'] = $this->config->SMTP_USERNAME;
+            $config[$mailbox]['smtp']['password'] = $this->config->SMTP_PASSWORD;
+        }
+        (new mailhelper($config))->sendMail(
+            mailbox: $mailbox,
+            subject: $subject,
+            content: nl2br($body),
+            to: $to,
+            from_name: $this->config->SMTP_FROM_NAME,
+            content_plain: $body
+        );
     }
 
     private function createAccessToken(string|int $user_id, string $user_login): array

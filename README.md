@@ -121,13 +121,27 @@ $auth = new simpleauth(
 );
 ```
 
-password reset mails are sent via SMTP. The reset token is a signed, stateless JWT and no additional database table is required. Configure SMTP through `.env`:
+password reset mails are sent through [mailhelper](https://github.com/vielhuber/mailhelper). The reset token is a signed, stateless JWT and no additional database table is required. Configure SMTP through `.env`:
 
 ```.env
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USERNAME=username
 SMTP_PASSWORD=password
+SMTP_ENCRYPTION=tls
+SMTP_FROM_EMAIL=noreply@example.com
+SMTP_FROM_NAME=simpleauth
+PASSWORD_RESET_URL=/reset-password
+```
+
+For Microsoft 365 / Exchange SMTP via OAuth, use tenant credentials instead of username/password:
+
+```.env
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_TENANT_ID=tenant-id
+SMTP_CLIENT_ID=client-id
+SMTP_CLIENT_SECRET=client-secret
 SMTP_ENCRYPTION=tls
 SMTP_FROM_EMAIL=noreply@example.com
 SMTP_FROM_NAME=simpleauth
