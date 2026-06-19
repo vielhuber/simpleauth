@@ -121,7 +121,7 @@ $auth = new simpleauth(
 );
 ```
 
-password reset mails are sent through [mailhelper](https://github.com/vielhuber/mailhelper). The reset token is a signed, stateless JWT and no additional database table is required. Configure SMTP through `.env`:
+password reset mails are sent as HTML emails through [mailhelper](https://github.com/vielhuber/mailhelper). The reset token is a signed, stateless JWT and no additional database table is required. Configure SMTP through `.env`:
 
 ```.env
 SMTP_HOST=smtp.example.com
@@ -158,6 +158,18 @@ The password reset flow is:
 4. The reset page reads the `token` query parameter and shows a form with a new password field.
 5. Submit `token` and `password` to `/auth/password-reset`.
 6. `simpleauth` verifies the token and sets the new password.
+
+You can customize the password reset email with `passwordResetMail`. Return `subject` and `content`. The callback receives the login and the reset link:
+
+```php
+$auth = new simpleauth(
+    /* ... */
+    passwordResetMail: fn(string $login, string $link): array => [
+        'subject' => 'Reset your password',
+        'content' => '<p>Hello ' . htmlspecialchars($login) . ',</p><p><a href="' . htmlspecialchars($link) . '">Set a new password</a></p>'
+    ]
+);
+```
 
 ## routes
 

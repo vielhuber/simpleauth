@@ -380,6 +380,39 @@ class UnitTest extends \PHPUnit\Framework\TestCase
         );
     }
 
+    function testPasswordResetMail()
+    {
+        $_SERVER['PASSWORD_RESET_URL'] = '/reset-password';
+        $_SERVER['HTTP_HOST'] = 'localhost:8007';
+        $auth = new class(
+            config: __DIR__ . '/../.env',
+            table: 'users',
+            login: 'email',
+            ttl: 30,
+            uuid: false,
+            passwordResetMail: fn(string $login, string $link): array => [
+                'subject' => 'Custom reset',
+                'content' => '<p>Reset for ' . $login . '</p><a href="' . $link . '">Reset</a>'
+            ]
+        ) extends \vielhuber\simpleauth\simpleauth {
+            public array $mail = [];
+
+            protected function sendMail(string $to, string $subject, string $content): void
+            {
+                $this->mail = [
+                    'to' => $to,
+                    'subject' => $subject,
+                    'content' => $content
+                ];
+            }
+        };
+        $this->assertTrue($auth->requestPasswordReset(login: 'david@vielhuber.de'));
+        $this->assertSame('david@vielhuber.de', $auth->mail['to']);
+        $this->assertSame('Custom reset', $auth->mail['subject']);
+        $this->assertStringContainsString('<p>Reset for david@vielhuber.de</p>', $auth->mail['content']);
+        $this->assertMatchesRegularExpression('/token=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/', $auth->mail['content']);
+    }
+
     private function request($method = 'GET', $route = '/', $data = [], $headers = [])
     {
         $client = new Client([

@@ -50,7 +50,8 @@ class simpleauth
             'table_challenge' => 'users_passkeys_challenges'
         ],
         false|array $captcha = false,
-        bool|string|array $cors = '*'
+        bool|string|array $cors = '*',
+        ?callable $passwordResetMail = null
     ) {
         $dotenv = \Dotenv\Dotenv::createImmutable(str_replace(['/.env', '.env'], '', $config ?? ''));
         $dotenv->load();
@@ -107,6 +108,7 @@ class simpleauth
         $this->config->SMTP_CLIENT_ID = (string) ($_SERVER['SMTP_CLIENT_ID'] ?? '');
         $this->config->SMTP_CLIENT_SECRET = (string) ($_SERVER['SMTP_CLIENT_SECRET'] ?? '');
         $this->config->PASSWORD_RESET_URL = (string) ($_SERVER['PASSWORD_RESET_URL'] ?? '');
+        $this->config->PASSWORD_RESET_MAIL = $passwordResetMail;
         $this->createTable();
         $this->handleCors($cors);
     }
@@ -1431,13 +1433,33 @@ class simpleauth
     private function sendPasswordResetMail(string $login, string $token): void
     {
         $link = $this->passwordResetLink($token);
-        $body =
-            "Hello,\n\n" .
-            "you requested a password reset.\n\n" .
-            "Open this link to set a new password:\n" .
-            $link .
-            "\n\nIf you did not request this, you can ignore this email.";
-        $this->sendMail($login, 'Password reset', $body);
+        $subject = 'Password reset';
+        $linkHtml = htmlspecialchars($link, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $content =
+            '<!doctype html><html><body style="font-family:Arial,sans-serif;line-height:1.5;color:#111827;">' .
+            '<p>Hello,</p>' .
+            '<p>you requested a password reset.</p>' .
+            '<p><a href="' .
+            $linkHtml .
+            '" style="display:inline-block;padding:10px 14px;background:#111827;color:#ffffff;text-decoration:none;">Set new password</a></p>' .
+            '<p>If the button does not work, open this link:<br><a href="' .
+            $linkHtml .
+            '">' .
+            $linkHtml .
+            '</a></p>' .
+            '<p>If you did not request this, you can ignore this email.</p>' .
+            '</body></html>';
+        if (is_callable($this->config->PASSWORD_RESET_MAIL)) {
+            $mail = ($this->config->PASSWORD_RESET_MAIL)($login, $link);
+            if (is_array($mail)) {
+                $mail = (object) $mail;
+            }
+            if (is_object($mail)) {
+                $subject = (string) ($mail->subject ?? $subject);
+                $content = (string) ($mail->content ?? $content);
+            }
+        }
+        $this->sendMail($login, $subject, $content);
     }
 
     private function passwordResetLink(string $token): string
@@ -1455,7 +1477,7 @@ class simpleauth
         return $url . (str_contains($url, '?') ? '&' : '?') . 'token=' . rawurlencode($token);
     }
 
-    private function sendMail(string $to, string $subject, string $body): void
+    protected function sendMail(string $to, string $subject, string $content): void
     {
         if ($this->config->SMTP !== true || $this->config->SMTP_HOST === '') {
             throw new \Exception('mail is not configured');
@@ -1487,10 +1509,9 @@ class simpleauth
         (new mailhelper($config))->sendMail(
             mailbox: $mailbox,
             subject: $subject,
-            content: nl2br($body),
+            content: $content,
             to: $to,
-            from_name: $this->config->SMTP_FROM_NAME,
-            content_plain: $body
+            from_name: $this->config->SMTP_FROM_NAME
         );
     }
 
