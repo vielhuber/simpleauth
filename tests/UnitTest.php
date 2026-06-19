@@ -287,6 +287,99 @@ class UnitTest extends \PHPUnit\Framework\TestCase
         $auth->deletePasskey(login: 'david@vielhuber.de', passkey_id: 1);
     }
 
+    function testUserManagement()
+    {
+        $auth = new \vielhuber\simpleauth\simpleauth(__DIR__ . '/../.env', 'users', 'email', 30, false);
+        comparehelper::assertEquals(
+            [
+                [
+                    'id' => '*',
+                    'login' => 'david@vielhuber.de',
+                    'email' => 'david@vielhuber.de'
+                ]
+            ],
+            $auth->getUsers()
+        );
+        comparehelper::assertEquals(
+            [
+                'id' => '*',
+                'login' => 'david@vielhuber.de',
+                'email' => 'david@vielhuber.de'
+            ],
+            $auth->getUser(login: 'david@vielhuber.de')
+        );
+        $this->assertTrue($auth->createUser(login: 'jane@vielhuber.de', password: 'secret'));
+        $this->assertTrue(
+            $auth->updateUser(login: 'jane@vielhuber.de', login_new: 'david2@vielhuber.de', password_new: 'secret2')
+        );
+        comparehelper::assertEquals(
+            [
+                'response' => [
+                    'success' => true,
+                    'message' => 'auth successful',
+                    'public_message' => '#STR#',
+                    'data' => '*'
+                ],
+                'code' => 200
+            ],
+            $this->request('POST', '/auth/login', [
+                'email' => 'david2@vielhuber.de',
+                'password' => 'secret2'
+            ])
+        );
+        $this->assertTrue($auth->deleteUser(login: 'david2@vielhuber.de'));
+    }
+
+    function testPasswordReset()
+    {
+        $auth = new \vielhuber\simpleauth\simpleauth(__DIR__ . '/../.env', 'users', 'email', 30, false);
+        $this->assertFalse($auth->requestPasswordReset(login: 'missing@vielhuber.de'));
+        $token = $auth->createPasswordResetToken(login: 'david@vielhuber.de');
+        comparehelper::assertEquals(
+            [
+                'response' => [
+                    'success' => true,
+                    'message' => 'password reset successful',
+                    'public_message' => '#STR#'
+                ],
+                'code' => 200
+            ],
+            $this->request('POST', '/auth/password-reset', [
+                'token' => $token,
+                'password' => 'reset-secret'
+            ])
+        );
+        comparehelper::assertEquals(
+            [
+                'response' => [
+                    'success' => true,
+                    'message' => 'auth successful',
+                    'public_message' => '#STR#',
+                    'data' => '*'
+                ],
+                'code' => 200
+            ],
+            $this->request('POST', '/auth/login', [
+                'email' => 'david@vielhuber.de',
+                'password' => 'reset-secret'
+            ])
+        );
+        comparehelper::assertEquals(
+            [
+                'response' => [
+                    'success' => false,
+                    'message' => 'password reset not successful',
+                    'public_message' => '#STR#'
+                ],
+                'code' => 401
+            ],
+            $this->request('POST', '/auth/password-reset', [
+                'token' => $token,
+                'password' => 'reset-secret-2'
+            ])
+        );
+    }
+
     private function request($method = 'GET', $route = '/', $data = [], $headers = [])
     {
         $client = new Client([

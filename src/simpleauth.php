@@ -9,6 +9,8 @@ use Firebase\JWT\Key;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use ParagonIE\ConstantTime\Base64UrlSafe;
+use PHPMailer\PHPMailer\Exception as PHPMailerException;
+use PHPMailer\PHPMailer\PHPMailer;
 use Symfony\Component\Serializer\SerializerInterface;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AttestationStatement\NoneAttestationStatementSupport;
@@ -74,26 +76,35 @@ class simpleauth
             $this->config->DB_PORT
         );
 
-        $this->config->JWT_TABLE = $table;
-        $this->config->JWT_LOGIN = $login;
-        $this->config->JWT_TTL = $ttl;
-        $this->config->JWT_UUID = $uuid;
-        $this->config->JWT_THROTTLE = $throttle !== false;
-        $this->config->JWT_THROTTLE_ATTEMPTS = $throttle === false ? 5 : (int) ($throttle['attempts'] ?? 5);
-        $this->config->JWT_THROTTLE_MINUTES = $throttle === false ? 15 : (int) ($throttle['minutes'] ?? 15);
-        $this->config->JWT_THROTTLE_TABLE =
+        $this->config->TABLE = $table;
+        $this->config->LOGIN = $login;
+        $this->config->TTL = $ttl;
+        $this->config->UUID = $uuid;
+        $this->config->THROTTLE = $throttle !== false;
+        $this->config->THROTTLE_ATTEMPTS = $throttle === false ? 5 : (int) ($throttle['attempts'] ?? 5);
+        $this->config->THROTTLE_MINUTES = $throttle === false ? 15 : (int) ($throttle['minutes'] ?? 15);
+        $this->config->THROTTLE_TABLE =
             $throttle === false ? 'users_login_attempts' : (string) ($throttle['table'] ?? 'users_login_attempts');
-        $this->config->JWT_PASSKEY = $passkeys !== false;
+        $this->config->PASSKEY = $passkeys !== false;
         $passkeys_table = $passkeys === false ? 'users_passkeys' : (string) ($passkeys['table'] ?? 'users_passkeys');
-        $this->config->JWT_PASSKEY_TABLE = $passkeys_table;
-        $this->config->JWT_PASSKEY_CHALLENGE_TABLE =
+        $this->config->PASSKEY_TABLE = $passkeys_table;
+        $this->config->PASSKEY_CHALLENGE_TABLE =
             $passkeys === false
                 ? 'users_passkeys_challenges'
                 : (string) ($passkeys['table_challenge'] ?? $passkeys_table . '_challenges');
-        $this->config->JWT_CAPTCHA = $captcha !== false;
-        $this->config->JWT_CAPTCHA_PROVIDER = $captcha === false ? null : (string) ($captcha['provider'] ?? 'hcaptcha');
-        $this->config->JWT_CAPTCHA_SITEKEY = $captcha === false ? null : (string) ($captcha['sitekey'] ?? '');
-        $this->config->JWT_CAPTCHA_SECRET = $captcha === false ? null : (string) ($captcha['secret'] ?? '');
+        $this->config->CAPTCHA = $captcha !== false;
+        $this->config->CAPTCHA_PROVIDER = $captcha === false ? null : (string) ($captcha['provider'] ?? 'hcaptcha');
+        $this->config->CAPTCHA_SITEKEY = $captcha === false ? null : (string) ($captcha['sitekey'] ?? '');
+        $this->config->CAPTCHA_SECRET = $captcha === false ? null : (string) ($captcha['secret'] ?? '');
+        $this->config->SMTP = (string) ($_SERVER['SMTP_HOST'] ?? '') !== '';
+        $this->config->SMTP_HOST = (string) ($_SERVER['SMTP_HOST'] ?? '');
+        $this->config->SMTP_PORT = (int) ($_SERVER['SMTP_PORT'] ?? 587);
+        $this->config->SMTP_USERNAME = (string) ($_SERVER['SMTP_USERNAME'] ?? '');
+        $this->config->SMTP_PASSWORD = (string) ($_SERVER['SMTP_PASSWORD'] ?? '');
+        $this->config->SMTP_ENCRYPTION = (string) ($_SERVER['SMTP_ENCRYPTION'] ?? 'tls');
+        $this->config->SMTP_FROM_EMAIL = (string) ($_SERVER['SMTP_FROM_EMAIL'] ?? '');
+        $this->config->SMTP_FROM_NAME = (string) ($_SERVER['SMTP_FROM_NAME'] ?? '');
+        $this->config->PASSWORD_RESET_URL = (string) ($_SERVER['PASSWORD_RESET_URL'] ?? '');
         $this->createTable();
         $this->handleCors($cors);
     }
@@ -131,6 +142,12 @@ class simpleauth
         }
         if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'check') {
             return $this->apiCheck();
+        }
+        if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'password-reset-request') {
+            return $this->apiPasswordResetRequest();
+        }
+        if ($this->apiRequestMethod() === 'POST' && $this->apiRequestPath() === 'password-reset') {
+            return $this->apiPasswordReset();
         }
         if (
             $this->passkeyEnabled() &&
@@ -274,7 +291,7 @@ class simpleauth
     private function apiLogin()
     {
         try {
-            $login = (string) $this->apiInput($this->config->JWT_LOGIN);
+            $login = (string) $this->apiInput($this->config->LOGIN);
             $password = (string) $this->apiInput('password');
             if ($login == '' || $password == '') {
                 throw new \Exception('login or password missing');
@@ -300,7 +317,7 @@ class simpleauth
                 );
             }
             $user = $this->db->fetch_row(
-                'SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
+                'SELECT * FROM ' . $this->config->TABLE . ' WHERE ' . $this->config->LOGIN . ' = ?',
                 $login
             );
             if (empty($user) || !password_verify($password, $user['password'])) {
@@ -308,7 +325,7 @@ class simpleauth
                 throw new \Exception('login or password wrong');
             }
             $this->throttleClear($login);
-            $data = $this->createAccessToken($user['id'], $user[$this->config->JWT_LOGIN]);
+            $data = $this->createAccessToken($user['id'], $user[$this->config->LOGIN]);
             return $this->apiResponse(
                 [
                     'success' => true,
@@ -393,7 +410,7 @@ class simpleauth
                     'public_message' => 'Valid token',
                     'data' => [
                         'access_token' => $access_token,
-                        'expires_in' => $this->config->JWT_TTL,
+                        'expires_in' => $this->config->TTL,
                         'user_id' => $user_id
                     ]
                 ],
@@ -465,6 +482,62 @@ class simpleauth
         }
     }
 
+    private function apiPasswordResetRequest()
+    {
+        try {
+            $login = (string) ($this->apiInput($this->config->LOGIN) ?? $this->apiInput('email') ?? '');
+            if ($login !== '') {
+                $this->requestPasswordReset($login);
+            }
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'password reset requested',
+                    'public_message' => 'If the account exists, a password reset email has been sent'
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'password reset not requested',
+                    'public_message' => 'Password reset not requested'
+                ],
+                500
+            );
+        }
+    }
+
+    private function apiPasswordReset()
+    {
+        try {
+            $token = (string) ($this->apiInput('token') ?? '');
+            $password = (string) ($this->apiInput('password') ?? '');
+            if ($token === '' || $password === '') {
+                throw new \Exception('token or password missing');
+            }
+            $this->resetPassword($token, $password);
+            return $this->apiResponse(
+                [
+                    'success' => true,
+                    'message' => 'password reset successful',
+                    'public_message' => 'Password reset successful'
+                ],
+                200
+            );
+        } catch (\Exception $e) {
+            return $this->apiResponse(
+                [
+                    'success' => false,
+                    'message' => 'password reset not successful',
+                    'public_message' => 'Password reset not successful'
+                ],
+                401
+            );
+        }
+    }
+
     private function apiPasskeyRegister()
     {
         try {
@@ -514,12 +587,12 @@ class simpleauth
     private function apiPasskeyLoginOptions()
     {
         try {
-            $login = (string) ($this->apiInput($this->config->JWT_LOGIN) ?? '');
+            $login = (string) ($this->apiInput($this->config->LOGIN) ?? '');
             $user = null;
             $allow_credentials = [];
             if ($login !== '') {
                 $user = $this->db->fetch_row(
-                    'SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
+                    'SELECT * FROM ' . $this->config->TABLE . ' WHERE ' . $this->config->LOGIN . ' = ?',
                     $login
                 );
                 if (empty($user)) {
@@ -579,7 +652,7 @@ class simpleauth
             }
             $credential_id = $this->passkeyCredentialIdFromCredential($credential_data);
             $passkey = $this->db->fetch_row(
-                'SELECT * FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE credential_id = ?',
+                'SELECT * FROM ' . $this->config->PASSKEY_TABLE . ' WHERE credential_id = ?',
                 $credential_id
             );
             if (empty($passkey)) {
@@ -613,13 +686,13 @@ class simpleauth
             $this->passkeyUpdateCredential((int) $passkey['id'], $credential_record);
             $this->passkeyDeleteChallenge((int) $challenge_row['id']);
             $user = $this->db->fetch_row(
-                'SELECT * FROM ' . $this->config->JWT_TABLE . ' WHERE id = ?',
+                'SELECT * FROM ' . $this->config->TABLE . ' WHERE id = ?',
                 $passkey['user_id']
             );
             if (empty($user)) {
                 throw new \Exception('user not found');
             }
-            $data = $this->createAccessToken($user['id'], $user[$this->config->JWT_LOGIN]);
+            $data = $this->createAccessToken($user['id'], $user[$this->config->LOGIN]);
             return $this->apiResponse(
                 [
                     'success' => true,
@@ -688,14 +761,14 @@ class simpleauth
         $this->db->query(
             '
             CREATE TABLE IF NOT EXISTS ' .
-                $this->config->JWT_TABLE .
+                $this->config->TABLE .
                 '
             (
                 id ' .
-                ($this->config->JWT_UUID === true ? 'VARCHAR(36)' : ($this->dbIsSqlite() ? 'INTEGER' : 'SERIAL')) .
+                ($this->config->UUID === true ? 'VARCHAR(36)' : ($this->dbIsSqlite() ? 'INTEGER' : 'SERIAL')) .
                 ' PRIMARY KEY,
                 ' .
-                $this->config->JWT_LOGIN .
+                $this->config->LOGIN .
                 ' varchar(100) NOT NULL,
                 password char(255) NOT NULL
             )
@@ -704,7 +777,7 @@ class simpleauth
         $this->db->query(
             '
             CREATE TABLE IF NOT EXISTS ' .
-                $this->config->JWT_THROTTLE_TABLE .
+                $this->config->THROTTLE_TABLE .
                 '
             (
                 id ' .
@@ -719,7 +792,7 @@ class simpleauth
         $this->db->query(
             '
             CREATE TABLE IF NOT EXISTS ' .
-                $this->config->JWT_PASSKEY_TABLE .
+                $this->config->PASSKEY_TABLE .
                 '
             (
                 id ' .
@@ -738,7 +811,7 @@ class simpleauth
         $this->db->query(
             '
             CREATE TABLE IF NOT EXISTS ' .
-                $this->config->JWT_PASSKEY_CHALLENGE_TABLE .
+                $this->config->PASSKEY_CHALLENGE_TABLE .
                 '
             (
                 id ' .
@@ -754,14 +827,14 @@ class simpleauth
         '
         );
         $this->createIndexIfMissing(
-            $this->config->JWT_THROTTLE_TABLE,
+            $this->config->THROTTLE_TABLE,
             'login_attempts_lookup',
             ['login_identifier', 'ip_address', 'created_at']
         );
-        $this->createIndexIfMissing($this->config->JWT_PASSKEY_TABLE, 'passkey_credential_id', ['credential_id'], true);
-        $this->createIndexIfMissing($this->config->JWT_PASSKEY_TABLE, 'passkey_user_id', ['user_id']);
+        $this->createIndexIfMissing($this->config->PASSKEY_TABLE, 'passkey_credential_id', ['credential_id'], true);
+        $this->createIndexIfMissing($this->config->PASSKEY_TABLE, 'passkey_user_id', ['user_id']);
         $this->createIndexIfMissing(
-            $this->config->JWT_PASSKEY_CHALLENGE_TABLE,
+            $this->config->PASSKEY_CHALLENGE_TABLE,
             'passkey_challenge_lookup',
             ['type', 'challenge', 'user_id']
         );
@@ -778,10 +851,10 @@ class simpleauth
 
     private function deleteTable(): bool
     {
-        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->JWT_TABLE);
-        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->JWT_THROTTLE_TABLE);
-        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->JWT_PASSKEY_TABLE);
-        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->JWT_PASSKEY_CHALLENGE_TABLE);
+        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->TABLE);
+        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->THROTTLE_TABLE);
+        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->PASSKEY_TABLE);
+        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->PASSKEY_CHALLENGE_TABLE);
         return true;
     }
 
@@ -800,7 +873,7 @@ class simpleauth
 
     private function passkeyEnabled(): bool
     {
-        return $this->config->JWT_PASSKEY === true;
+        return $this->config->PASSKEY === true;
     }
 
     private function passkeyCeremonyFactory(): CeremonyStepManagerFactory
@@ -825,7 +898,7 @@ class simpleauth
         $this->passkeyDeleteExpiredChallenges();
         $this->db->query(
             'INSERT INTO ' .
-                $this->config->JWT_PASSKEY_CHALLENGE_TABLE .
+                $this->config->PASSKEY_CHALLENGE_TABLE .
                 '(type, user_id, login_identifier, challenge, options, created_at) VALUES(?,?,?,?,?,?)',
             $type,
             $user_id,
@@ -840,7 +913,7 @@ class simpleauth
     {
         $query =
             'SELECT * FROM ' .
-            $this->config->JWT_PASSKEY_CHALLENGE_TABLE .
+            $this->config->PASSKEY_CHALLENGE_TABLE .
             ' WHERE type = ? AND challenge = ? AND created_at >= ?';
         $params = [$type, $challenge, date('Y-m-d H:i:s', time() - 300)];
         if ($user_id !== null && $user_id !== '') {
@@ -857,13 +930,13 @@ class simpleauth
 
     private function passkeyDeleteChallenge(int $id): void
     {
-        $this->db->query('DELETE FROM ' . $this->config->JWT_PASSKEY_CHALLENGE_TABLE . ' WHERE id = ?', $id);
+        $this->db->query('DELETE FROM ' . $this->config->PASSKEY_CHALLENGE_TABLE . ' WHERE id = ?', $id);
     }
 
     private function passkeyDeleteExpiredChallenges(): void
     {
         $this->db->query(
-            'DELETE FROM ' . $this->config->JWT_PASSKEY_CHALLENGE_TABLE . ' WHERE created_at < ?',
+            'DELETE FROM ' . $this->config->PASSKEY_CHALLENGE_TABLE . ' WHERE created_at < ?',
             date('Y-m-d H:i:s', time() - 300)
         );
     }
@@ -873,7 +946,7 @@ class simpleauth
         $credentials = [];
         foreach (
             $this->db->fetch_all(
-                'SELECT credential_record FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE user_id = ?',
+                'SELECT credential_record FROM ' . $this->config->PASSKEY_TABLE . ' WHERE user_id = ?',
                 $user_id
             )
             as $passkey
@@ -894,7 +967,7 @@ class simpleauth
         $credential_id = Base64UrlSafe::encodeUnpadded($credential_record->publicKeyCredentialId);
         if (
             $this->db->fetch_var(
-                'SELECT COUNT(id) FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE credential_id = ?',
+                'SELECT COUNT(id) FROM ' . $this->config->PASSKEY_TABLE . ' WHERE credential_id = ?',
                 $credential_id
             ) > 0
         ) {
@@ -902,7 +975,7 @@ class simpleauth
         }
         $this->db->query(
             'INSERT INTO ' .
-                $this->config->JWT_PASSKEY_TABLE .
+                $this->config->PASSKEY_TABLE .
                 '(user_id, login_identifier, credential_id, credential_record, counter, created_at) VALUES(?,?,?,?,?,?)',
             $user_id,
             $login_identifier,
@@ -917,7 +990,7 @@ class simpleauth
     {
         $this->db->query(
             'UPDATE ' .
-                $this->config->JWT_PASSKEY_TABLE .
+                $this->config->PASSKEY_TABLE .
                 ' SET credential_record = ?, counter = ?, last_used_at = ? WHERE id = ?',
             json_encode($this->passkeyNormalize($credential_record)),
             $credential_record->counter,
@@ -1000,7 +1073,7 @@ class simpleauth
 
     private function captchaEnabled(): bool
     {
-        return $this->config->JWT_CAPTCHA === true;
+        return $this->config->CAPTCHA === true;
     }
 
     private function captchaValid(): bool
@@ -1008,7 +1081,7 @@ class simpleauth
         if (!$this->captchaEnabled()) {
             return true;
         }
-        if ($this->config->JWT_CAPTCHA_PROVIDER !== 'hcaptcha' || $this->config->JWT_CAPTCHA_SECRET === '') {
+        if ($this->config->CAPTCHA_PROVIDER !== 'hcaptcha' || $this->config->CAPTCHA_SECRET === '') {
             return false;
         }
         $token = (string) ($this->apiInput('h-captcha-response') ?? '');
@@ -1021,12 +1094,12 @@ class simpleauth
     private function captchaVerifyHcaptcha(string $token): bool
     {
         $form_params = [
-            'secret' => $this->config->JWT_CAPTCHA_SECRET,
+            'secret' => $this->config->CAPTCHA_SECRET,
             'response' => $token,
             'remoteip' => $this->throttleIpAddress()
         ];
-        if ($this->config->JWT_CAPTCHA_SITEKEY !== '') {
-            $form_params['sitekey'] = $this->config->JWT_CAPTCHA_SITEKEY;
+        if ($this->config->CAPTCHA_SITEKEY !== '') {
+            $form_params['sitekey'] = $this->config->CAPTCHA_SITEKEY;
         }
         try {
             $response = (new Client())->request('POST', 'https://api.hcaptcha.com/siteverify', [
@@ -1042,9 +1115,9 @@ class simpleauth
 
     private function throttleEnabled(): bool
     {
-        return $this->config->JWT_THROTTLE === true &&
-            $this->config->JWT_THROTTLE_ATTEMPTS > 0 &&
-            $this->config->JWT_THROTTLE_MINUTES > 0;
+        return $this->config->THROTTLE === true &&
+            $this->config->THROTTLE_ATTEMPTS > 0 &&
+            $this->config->THROTTLE_MINUTES > 0;
     }
 
     private function throttleReached(string $login): bool
@@ -1054,12 +1127,12 @@ class simpleauth
         }
         return $this->db->fetch_var(
             'SELECT COUNT(id) FROM ' .
-                $this->config->JWT_THROTTLE_TABLE .
+                $this->config->THROTTLE_TABLE .
                 ' WHERE login_identifier = ? AND ip_address = ? AND created_at >= ?',
             $login,
             $this->throttleIpAddress(),
             $this->throttleDateThreshold()
-        ) >= $this->config->JWT_THROTTLE_ATTEMPTS;
+        ) >= $this->config->THROTTLE_ATTEMPTS;
     }
 
     private function throttleRecord(string $login): void
@@ -1070,7 +1143,7 @@ class simpleauth
         $this->throttleDeleteExpiredAttempts();
         $this->db->query(
             'INSERT INTO ' .
-                $this->config->JWT_THROTTLE_TABLE .
+                $this->config->THROTTLE_TABLE .
                 '(login_identifier, ip_address, created_at) VALUES(?,?,?)',
             $login,
             $this->throttleIpAddress(),
@@ -1084,7 +1157,7 @@ class simpleauth
             return;
         }
         $this->db->query(
-            'DELETE FROM ' . $this->config->JWT_THROTTLE_TABLE . ' WHERE login_identifier = ? AND ip_address = ?',
+            'DELETE FROM ' . $this->config->THROTTLE_TABLE . ' WHERE login_identifier = ? AND ip_address = ?',
             $login,
             $this->throttleIpAddress()
         );
@@ -1093,19 +1166,40 @@ class simpleauth
     private function throttleDeleteExpiredAttempts(): void
     {
         $this->db->query(
-            'DELETE FROM ' . $this->config->JWT_THROTTLE_TABLE . ' WHERE created_at < ?',
+            'DELETE FROM ' . $this->config->THROTTLE_TABLE . ' WHERE created_at < ?',
             $this->throttleDateThreshold()
         );
     }
 
     private function throttleDateThreshold(): string
     {
-        return date('Y-m-d H:i:s', time() - 60 * $this->config->JWT_THROTTLE_MINUTES);
+        return date('Y-m-d H:i:s', time() - 60 * $this->config->THROTTLE_MINUTES);
     }
 
     private function throttleIpAddress(): string
     {
         return $_SERVER['REMOTE_ADDR'] ?? '';
+    }
+
+    public function getUsers(): array
+    {
+        return array_map(
+            fn(array $user): array => $this->formatUser($user),
+            $this->db->fetch_all(
+                'SELECT id, ' .
+                    $this->config->LOGIN .
+                    ' FROM ' .
+                    $this->config->TABLE .
+                    ' ORDER BY ' .
+                    $this->config->LOGIN .
+                    ' ASC'
+            )
+        );
+    }
+
+    public function getUser(string $login): array
+    {
+        return $this->formatUser($this->getUserRowByLogin($login));
     }
 
     public function getPasskeys(string $login): array
@@ -1123,11 +1217,64 @@ class simpleauth
             },
             $this->db->fetch_all(
                 'SELECT id, login_identifier, counter, created_at, last_used_at FROM ' .
-                    $this->config->JWT_PASSKEY_TABLE .
+                    $this->config->PASSKEY_TABLE .
                     ' WHERE user_id = ? ORDER BY created_at DESC, id DESC',
                 $user_id
             )
         );
+    }
+
+    public function requestPasswordReset(string $login): bool
+    {
+        if (!$this->userExists($login)) {
+            return false;
+        }
+        $this->sendPasswordResetMail($login, $this->createPasswordResetToken($login));
+        return true;
+    }
+
+    public function createPasswordResetToken(string $login): string
+    {
+        $user = $this->getUserRowByLogin($login);
+        return JWT::encode(
+            [
+                'iss' => $_SERVER['HTTP_HOST'] ?? null,
+                'exp' => time() + 60 * 30,
+                'sub' => $user['id'],
+                'login' => $user[$this->config->LOGIN],
+                'password_fingerprint' => $this->passwordResetFingerprint((string) $user['password']),
+                'purpose' => 'password_reset'
+            ],
+            $this->config->JWT_SECRET,
+            'HS256'
+        );
+    }
+
+    public function resetPassword(string $token, string $password): bool
+    {
+        $data = JWT::decode($token, new Key($this->config->JWT_SECRET, 'HS256'));
+        if (($data->purpose ?? null) !== 'password_reset') {
+            throw new \Exception('invalid password reset token');
+        }
+        $user = $this->db->fetch_row(
+            'SELECT id, ' .
+                $this->config->LOGIN .
+                ', password' .
+                ' FROM ' .
+                $this->config->TABLE .
+                ' WHERE id = ? AND ' .
+                $this->config->LOGIN .
+                ' = ?',
+            $data->sub,
+            $data->login
+        );
+        if (empty($user)) {
+            throw new \Exception('user does not exists');
+        }
+        if (($data->password_fingerprint ?? '') !== $this->passwordResetFingerprint((string) $user['password'])) {
+            throw new \Exception('password reset token expired');
+        }
+        return $this->setPassword((string) $user[$this->config->LOGIN], $password);
     }
 
     public function deletePasskey(string $login, string|int $passkey_id): bool
@@ -1135,7 +1282,7 @@ class simpleauth
         $user_id = $this->getUserIdByLogin($login);
         if (
             $this->db->fetch_var(
-                'SELECT COUNT(id) FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE id = ? AND user_id = ?',
+                'SELECT COUNT(id) FROM ' . $this->config->PASSKEY_TABLE . ' WHERE id = ? AND user_id = ?',
                 $passkey_id,
                 $user_id
             ) == 0
@@ -1143,7 +1290,7 @@ class simpleauth
             throw new \Exception('passkey does not exist');
         }
         $this->db->query(
-            'DELETE FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE id = ? AND user_id = ?',
+            'DELETE FROM ' . $this->config->PASSKEY_TABLE . ' WHERE id = ? AND user_id = ?',
             $passkey_id,
             $user_id
         );
@@ -1152,26 +1299,29 @@ class simpleauth
 
     public function createUser(string $login, string $password): bool
     {
+        if ($login === '' || $password === '') {
+            throw new \Exception('login or password missing');
+        }
         if (
             $this->db->fetch_var(
-                'SELECT COUNT(id) FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
+                'SELECT COUNT(id) FROM ' . $this->config->TABLE . ' WHERE ' . $this->config->LOGIN . ' = ?',
                 $login
             ) > 0
         ) {
             throw new \Exception('user already exists');
         }
-        if ($this->config->JWT_UUID === false) {
+        if ($this->config->UUID === false) {
             $this->db->query(
-                'INSERT INTO ' . $this->config->JWT_TABLE . '(' . $this->config->JWT_LOGIN . ',password) VALUES(?,?)',
+                'INSERT INTO ' . $this->config->TABLE . '(' . $this->config->LOGIN . ',password) VALUES(?,?)',
                 $login,
                 password_hash($password, PASSWORD_DEFAULT)
             );
         } else {
             $this->db->query(
                 'INSERT INTO ' .
-                    $this->config->JWT_TABLE .
+                    $this->config->TABLE .
                     '(id, ' .
-                    $this->config->JWT_LOGIN .
+                    $this->config->LOGIN .
                     ',password) VALUES(?,?,?)',
                 $this->uuid(),
                 $login,
@@ -1181,42 +1331,163 @@ class simpleauth
         return true;
     }
 
+    public function updateUser(string $login, ?string $login_new = null, ?string $password_new = null): bool
+    {
+        $user = $this->getUserRowByLogin($login);
+        if ($login_new !== null && $login_new !== '' && $login_new !== $login) {
+            if ($this->userExists($login_new)) {
+                throw new \Exception('user already exists');
+            }
+            $this->db->query(
+                'UPDATE ' . $this->config->TABLE . ' SET ' . $this->config->LOGIN . ' = ? WHERE id = ?',
+                $login_new,
+                $user['id']
+            );
+        }
+        if ($password_new !== null && $password_new !== '') {
+            $this->setPassword($login_new !== null && $login_new !== '' ? $login_new : $login, $password_new);
+        }
+        return true;
+    }
+
+    public function setPassword(string $login, string $password): bool
+    {
+        if ($password === '') {
+            throw new \Exception('password missing');
+        }
+        $user = $this->getUserRowByLogin($login);
+        $this->db->query(
+            'UPDATE ' . $this->config->TABLE . ' SET password = ? WHERE id = ?',
+            password_hash($password, PASSWORD_DEFAULT),
+            $user['id']
+        );
+        return true;
+    }
+
     public function deleteUser(string $login): bool
     {
-        $user = $this->db->fetch_row(
-            'SELECT id FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
-            $login
-        );
-        if (empty($user)) {
-            throw new \Exception('user does not exists');
-        }
-        $this->db->query('DELETE FROM ' . $this->config->JWT_PASSKEY_TABLE . ' WHERE user_id = ?', (string) $user['id']);
+        $user = $this->getUserRowByLogin($login);
+        $this->db->query('DELETE FROM ' . $this->config->PASSKEY_TABLE . ' WHERE user_id = ?', (string) $user['id']);
         $this->db->query(
-            'DELETE FROM ' . $this->config->JWT_PASSKEY_CHALLENGE_TABLE . ' WHERE user_id = ?',
+            'DELETE FROM ' . $this->config->PASSKEY_CHALLENGE_TABLE . ' WHERE user_id = ?',
             (string) $user['id']
         );
         $this->db->query(
-            'DELETE FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
+            'DELETE FROM ' . $this->config->TABLE . ' WHERE ' . $this->config->LOGIN . ' = ?',
             $login
         );
         return true;
     }
 
-    private function getUserIdByLogin(string $login): string
+    private function formatUser(array $user): array
+    {
+        return [
+            'id' => $user['id'],
+            'login' => $user[$this->config->LOGIN],
+            $this->config->LOGIN => $user[$this->config->LOGIN]
+        ];
+    }
+
+    private function userExists(string $login): bool
+    {
+        return $this->db->fetch_var(
+            'SELECT COUNT(id) FROM ' . $this->config->TABLE . ' WHERE ' . $this->config->LOGIN . ' = ?',
+            $login
+        ) > 0;
+    }
+
+    private function getUserRowByLogin(string $login): array
     {
         $user = $this->db->fetch_row(
-            'SELECT id FROM ' . $this->config->JWT_TABLE . ' WHERE ' . $this->config->JWT_LOGIN . ' = ?',
+            'SELECT id, ' .
+                $this->config->LOGIN .
+                ', password' .
+                ' FROM ' .
+                $this->config->TABLE .
+                ' WHERE ' .
+                $this->config->LOGIN .
+                ' = ?',
             $login
         );
         if (empty($user)) {
             throw new \Exception('user does not exists');
         }
+        return $user;
+    }
+
+    private function getUserIdByLogin(string $login): string
+    {
+        $user = $this->getUserRowByLogin($login);
         return (string) $user['id'];
+    }
+
+    private function passwordResetFingerprint(string $password_hash): string
+    {
+        return hash_hmac('sha256', $password_hash, $this->config->JWT_SECRET);
+    }
+
+    private function sendPasswordResetMail(string $login, string $token): void
+    {
+        $link = $this->passwordResetLink($token);
+        $body =
+            "Hello,\n\n" .
+            "you requested a password reset.\n\n" .
+            "Open this link to set a new password:\n" .
+            $link .
+            "\n\nIf you did not request this, you can ignore this email.";
+        $this->sendMail($login, 'Password reset', $body);
+    }
+
+    private function passwordResetLink(string $token): string
+    {
+        $url = $this->config->PASSWORD_RESET_URL;
+        if ($url === '') {
+            throw new \Exception('password reset url missing');
+        }
+        if (!preg_match('/^https?:\/\//i', $url)) {
+            $url = $this->passkeyScheme() . '://' . $this->passkeyHost() . '/' . ltrim($url, '/');
+        }
+        if (str_contains($url, '{token}')) {
+            return str_replace('{token}', rawurlencode($token), $url);
+        }
+        return $url . (str_contains($url, '?') ? '&' : '?') . 'token=' . rawurlencode($token);
+    }
+
+    private function sendMail(string $to, string $subject, string $body): void
+    {
+        if ($this->config->SMTP !== true || $this->config->SMTP_HOST === '') {
+            throw new \Exception('mail is not configured');
+        }
+        $mailer = new PHPMailer(true);
+        try {
+            $mailer->isSMTP();
+            $mailer->Host = $this->config->SMTP_HOST;
+            $mailer->Port = $this->config->SMTP_PORT;
+            $mailer->CharSet = 'UTF-8';
+            if ($this->config->SMTP_USERNAME !== '') {
+                $mailer->SMTPAuth = true;
+                $mailer->Username = $this->config->SMTP_USERNAME;
+                $mailer->Password = $this->config->SMTP_PASSWORD;
+            }
+            if ($this->config->SMTP_ENCRYPTION !== '') {
+                $mailer->SMTPSecure = $this->config->SMTP_ENCRYPTION;
+            }
+            $mailer->setFrom(
+                $this->config->SMTP_FROM_EMAIL,
+                $this->config->SMTP_FROM_NAME
+            );
+            $mailer->addAddress($to);
+            $mailer->Subject = $subject;
+            $mailer->Body = $body;
+            $mailer->send();
+        } catch (PHPMailerException $e) {
+            throw new \Exception('mail not sent', 0, $e);
+        }
     }
 
     private function createAccessToken(string|int $user_id, string $user_login): array
     {
-        $expires_in = 60 * 60 * 24 * $this->config->JWT_TTL;
+        $expires_in = 60 * 60 * 24 * $this->config->TTL;
         $access_token = JWT::encode(
             [
                 'iss' => @$_SERVER['HTTP_HOST'], // issuer

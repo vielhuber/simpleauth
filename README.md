@@ -121,6 +121,30 @@ $auth = new simpleauth(
 );
 ```
 
+password reset mails are sent via SMTP. The reset token is a signed, stateless JWT and no additional database table is required. Configure SMTP through `.env`:
+
+```.env
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USERNAME=username
+SMTP_PASSWORD=password
+SMTP_ENCRYPTION=tls
+SMTP_FROM_EMAIL=noreply@example.com
+SMTP_FROM_NAME=simpleauth
+PASSWORD_RESET_URL=/reset-password
+```
+
+`PASSWORD_RESET_URL` can be absolute (`https://example.com/reset-password`) or relative (`/reset-password`). If it contains `{token}`, the placeholder is replaced. Otherwise the token is appended as `token` query parameter.
+
+The password reset flow is:
+
+1. Add a "forgot password" form in your application that posts the login field, for example `email`, to `/auth/password-reset-request`.
+2. `simpleauth` sends an email with a signed reset token link to `PASSWORD_RESET_URL`.
+3. Add a reset page in your application at that URL, for example `/reset-password`.
+4. The reset page reads the `token` query parameter and shows a form with a new password field.
+5. Submit `token` and `password` to `/auth/password-reset`.
+6. `simpleauth` verifies the token and sets the new password.
+
 ## routes
 
 the following routes are provided automatically:
@@ -131,6 +155,8 @@ the following routes are provided automatically:
 | `/auth/refresh`                  | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 86400, 'user_id' => 42 ] ], 200)` |
 | `/auth/logout`                   | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'logout successful', 'public_message' => '...' ], 200)`                                                                              |
 | `/auth/check`                    | POST   | access_token                      | --                          | `([ 'success' => true, 'message' => 'valid token', 'public_message' => '...', 'data' => [ 'expires_in' => 86400, 'user_id' => 42, 'client_id' => 7000000 ] ], 200)`      |
+| `/auth/password-reset-request`   | POST   | email                             | --                          | `([ 'success' => true, 'message' => 'password reset requested', 'public_message' => '...' ], 200)`                                                                      |
+| `/auth/password-reset`           | POST   | token password                    | --                          | `([ 'success' => true, 'message' => 'password reset successful', 'public_message' => '...' ], 200)`                                                                     |
 | `/auth/passkey-register-options` | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey registration options created', 'public_message' => '...', 'data' => [ 'publicKey' => [] ] ], 200)`                          |
 | `/auth/passkey-register`         | POST   | credential                        | Authorization: Bearer token | `([ 'success' => true, 'message' => 'passkey registered', 'public_message' => '...' ], 200)`                                                                             |
 | `/auth/passkey-login-options`    | POST   | email optional                    | --                          | `([ 'success' => true, 'message' => 'passkey login options created', 'public_message' => '...', 'data' => [ 'publicKey' => [] ] ], 200)`                                 |
@@ -155,8 +181,14 @@ $auth = new simpleauth(config: __DIR__ . '/../.env', table: 'users', login: 'ema
 $auth->isLoggedIn();
 $auth->getCurrentUserId();
 $auth->migrate();
-
+$auth->getUsers();
+$auth->getUser(login: 'david@vielhuber.de');
 $auth->createUser(login: 'david@vielhuber.de', password: 'secret2');
+$auth->updateUser(login: 'david@vielhuber.de', login_new: 'david@vielhuber.de', password_new: 'secret3');
+$auth->setPassword(login: 'david@vielhuber.de', password: 'secret4');
+$auth->requestPasswordReset(login: 'david@vielhuber.de');
+$token = $auth->createPasswordResetToken(login: 'david@vielhuber.de');
+$auth->resetPassword(token: $token, password: 'secret5');
 $auth->getPasskeys(login: 'david@vielhuber.de');
 $auth->deletePasskey(login: 'david@vielhuber.de', passkey_id: 1);
 $auth->deleteUser(login: 'david@vielhuber.de');
