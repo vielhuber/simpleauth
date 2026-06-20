@@ -1085,28 +1085,40 @@ class simpleauth
         if (!$this->captchaEnabled()) {
             return true;
         }
-        if ($this->config->CAPTCHA_PROVIDER !== 'hcaptcha' || $this->config->CAPTCHA_SECRET === '') {
+        if ($this->config->CAPTCHA_SECRET === '') {
             return false;
         }
-        $token = (string) ($this->apiInput('h-captcha-response') ?? '');
+        $endpoints = [
+            'hcaptcha' => 'https://api.hcaptcha.com/siteverify',
+            'turnstile' => 'https://challenges.cloudflare.com/turnstile/v0/siteverify'
+        ];
+        $fields = [
+            'hcaptcha' => 'h-captcha-response',
+            'turnstile' => 'cf-turnstile-response'
+        ];
+        $provider = (string) $this->config->CAPTCHA_PROVIDER;
+        if (!isset($endpoints[$provider])) {
+            return false;
+        }
+        $token = (string) ($this->apiInput($fields[$provider]) ?? '');
         if ($token === '') {
             return false;
         }
-        return $this->captchaVerifyHcaptcha($token);
+        return $this->captchaVerify($endpoints[$provider], $token, $provider);
     }
 
-    private function captchaVerifyHcaptcha(string $token): bool
+    private function captchaVerify(string $endpoint, string $token, string $provider): bool
     {
         $form_params = [
             'secret' => $this->config->CAPTCHA_SECRET,
             'response' => $token,
             'remoteip' => $this->throttleIpAddress()
         ];
-        if ($this->config->CAPTCHA_SITEKEY !== '') {
+        if ($provider === 'hcaptcha' && $this->config->CAPTCHA_SITEKEY !== '') {
             $form_params['sitekey'] = $this->config->CAPTCHA_SITEKEY;
         }
         try {
-            $response = (new Client())->request('POST', 'https://api.hcaptcha.com/siteverify', [
+            $response = (new Client())->request('POST', $endpoint, [
                 'form_params' => $form_params,
                 'timeout' => 5
             ]);

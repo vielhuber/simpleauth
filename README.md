@@ -96,18 +96,19 @@ $auth = new simpleauth(
 ```
 
 captcha validation is disabled by default. \
-you can enable [hCaptcha](https://www.hcaptcha.com):
 
 ```php
 $auth = new simpleauth(
     /* ... */
     captcha: [
-        'provider' => 'hcaptcha',
+        'provider' => '...', // 'hcaptcha'|'turnstile'
         'sitekey' => 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
         'secret' => 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
     ]
 );
 ```
+
+the matching captcha token is sent by the frontend on `/auth/login` (`h-captcha-response` for hCaptcha, `cf-turnstile-response` for Turnstile).
 
 passkeys are supported via WebAuthn and are available after running `migrate`. Browsers require a secure context for passkeys, except on localhost. You can disable passkeys with `passkeys: false` or adjust the table names with `passkeys`:
 
@@ -177,7 +178,7 @@ the following routes are provided automatically:
 
 | route                            | method | arguments                         | header                      | response                                                                                                                                                                 |
 | -------------------------------- | ------ | --------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/auth/login`                    | POST   | email password h-captcha-response | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 86400, 'user_id' => 42 ] ], 200)` |
+| `/auth/login`                    | POST   | email password captcha-response   | --                          | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 86400, 'user_id' => 42 ] ], 200)` |
 | `/auth/refresh`                  | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'auth successful', 'public_message' => '...', 'data' => [ 'access_token' => '...', 'expires_in' => 86400, 'user_id' => 42 ] ], 200)` |
 | `/auth/logout`                   | POST   | --                                | Authorization: Bearer token | `([ 'success' => true, 'message' => 'logout successful', 'public_message' => '...' ], 200)`                                                                              |
 | `/auth/check`                    | POST   | access_token                      | --                          | `([ 'success' => true, 'message' => 'valid token', 'public_message' => '...', 'data' => [ 'expires_in' => 86400, 'user_id' => 42, 'client_id' => 7000000 ] ], 200)`      |
