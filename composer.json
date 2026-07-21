@@ -3,13 +3,13 @@
     "description": "Simple php authentication library.",
     "require": {
         "php": "^8.5",
-        "vielhuber/dbhelper": "^2.4.8",
+        "vielhuber/dbhelper": "^2.5.5",
         "firebase/php-jwt": "^7.0.5",
         "vielhuber/comparehelper": "^1.1.9",
-        "guzzlehttp/guzzle": "^7.10.3",
-        "vlucas/phpdotenv": "^5.6.3",
+        "guzzlehttp/guzzle": "^7.15.1",
+        "vlucas/phpdotenv": "^5.6.4",
         "web-auth/webauthn-lib": "^5.3",
-        "vielhuber/mailhelper": "^1"
+        "vielhuber/mailhelper": "^1.8.3"
     },
     "license": "MIT",
     "autoload": {
