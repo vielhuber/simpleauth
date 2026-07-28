@@ -6,8 +6,6 @@ namespace vielhuber\simpleauth;
 use vielhuber\dbhelper\dbhelper;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
 use ParagonIE\ConstantTime\Base64UrlSafe;
 use vielhuber\mailhelper\mailhelper;
 use Symfony\Component\Serializer\SerializerInterface;
@@ -1117,16 +1115,17 @@ class simpleauth
         if ($provider === 'hcaptcha' && $this->config->CAPTCHA_SITEKEY !== '') {
             $form_params['sitekey'] = $this->config->CAPTCHA_SITEKEY;
         }
-        try {
-            $response = (new Client())->request('POST', $endpoint, [
-                'form_params' => $form_params,
-                'timeout' => 5
-            ]);
-            $data = json_decode((string) $response->getBody(), true);
-            return is_array($data) && ($data['success'] ?? false) === true;
-        } catch (GuzzleException $e) {
-            return false;
-        }
+        $response = \__curl(
+            url: $endpoint,
+            data: $form_params,
+            method: 'POST',
+            send_as_json: false,
+            timeout: 5,
+            ssl_verify: true
+        );
+        return $response->status === 200 &&
+            is_object($response->result) &&
+            ($response->result->success ?? false) === true;
     }
 
     private function throttleEnabled(): bool

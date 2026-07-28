@@ -1,6 +1,7 @@
 <?php
+declare(strict_types=1);
+
 use vielhuber\comparehelper\comparehelper;
-use GuzzleHttp\Client;
 
 class UnitTest extends \PHPUnit\Framework\TestCase
 {
@@ -413,25 +414,18 @@ class UnitTest extends \PHPUnit\Framework\TestCase
         $this->assertMatchesRegularExpression('/token=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/', $auth->mail['content']);
     }
 
-    private function request($method = 'GET', $route = '/', $data = [], $headers = [])
+    private function request(string $method = 'GET', string $route = '/', mixed $data = [], array $headers = []): array
     {
-        $client = new Client([
-            'base_uri' => 'http://localhost:8007'
-        ]);
-        try {
-            $response = $client->request($method, $route, [
-                'form_params' => $data,
-                'headers' => $headers,
-                'http_errors' => false
-            ]);
-            return [
-                'code' => $response->getStatusCode(),
-                'response' => json_decode(json_encode(json_decode((string) $response->getBody())), true)
-            ];
-        } catch (\Exception $e) {
-            return [
-                'response' => $e->getMessage()
-            ];
-        }
+        $response = \__curl(
+            url: 'http://localhost:8007' . $route,
+            data: $data,
+            method: $method,
+            headers: $headers,
+            send_as_json: false
+        );
+        return [
+            'code' => $response->status,
+            'response' => json_decode(json_encode($response->result), true)
+        ];
     }
 }
