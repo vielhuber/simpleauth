@@ -118,16 +118,23 @@ class simpleauth
             $this->api();
         } elseif (!empty($argv) && isset($argv[1]) && $argv[1] === 'migrate') {
             $this->migrate();
+            echo 'Tables migrated.' . PHP_EOL;
         } elseif (
             !empty($argv) &&
             isset($argv[1]) &&
             $argv[1] === 'create' &&
             isset($argv[2]) &&
             $argv[2] !== '' &&
-            isset($argv[1]) &&
+            isset($argv[3]) &&
             $argv[3] !== ''
         ) {
             $this->create($argv[2], $argv[3]);
+        } else {
+            fwrite(
+                STDERR,
+                'Usage: php ' . ($argv[0] ?? 'auth/index.php') . ' migrate | create <login> <password>' . PHP_EOL
+            );
+            exit(1);
         }
     }
 
@@ -205,10 +212,12 @@ class simpleauth
     private function create(string $username, string $password): void
     {
         try {
-            $this->deleteUser($username);
-        } catch (\Exception $e) {
+            $this->createUser($username, $password);
+        } catch (UserException $exception) {
+            fwrite(STDERR, 'Error: ' . $exception->getMessage() . PHP_EOL);
+            exit(1);
         }
-        $this->createUser($username, $password);
+        echo 'User created.' . PHP_EOL;
     }
 
     private function apiRequestPath()
@@ -1284,7 +1293,7 @@ class simpleauth
             $data->login
         );
         if (empty($user)) {
-            throw new \Exception('user does not exists');
+            throw UserException::notFound();
         }
         if (($data->password_fingerprint ?? '') !== $this->passwordResetFingerprint((string) $user['password'])) {
             throw new \Exception('password reset token expired');
@@ -1323,7 +1332,7 @@ class simpleauth
                 $login
             ) > 0
         ) {
-            throw new \Exception('user already exists');
+            throw UserException::alreadyExists();
         }
         if ($this->config->UUID === false) {
             $this->db->query(
@@ -1351,7 +1360,7 @@ class simpleauth
         $user = $this->getUserRowByLogin($login);
         if ($login_new !== null && $login_new !== '' && $login_new !== $login) {
             if ($this->userExists($login_new)) {
-                throw new \Exception('user already exists');
+                throw UserException::alreadyExists();
             }
             $this->db->query(
                 'UPDATE ' . $this->config->TABLE . ' SET ' . $this->config->LOGIN . ' = ? WHERE id = ?',
@@ -1425,7 +1434,7 @@ class simpleauth
             $login
         );
         if (empty($user)) {
-            throw new \Exception('user does not exists');
+            throw UserException::notFound();
         }
         return $user;
     }
@@ -1624,5 +1633,24 @@ class simpleauth
             $rand_hex
         );
         return $uuid;
+    }
+}
+
+final class UserException extends \DomainException
+{
+    /**
+     * Rejects a login identifier already assigned to a user.
+     */
+    public static function alreadyExists(): self
+    {
+        return new self('user already exists');
+    }
+
+    /**
+     * Rejects an operation requiring an existing user.
+     */
+    public static function notFound(): self
+    {
+        return new self('user does not exist');
     }
 }

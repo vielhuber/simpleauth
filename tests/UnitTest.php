@@ -331,6 +331,30 @@ class UnitTest extends \PHPUnit\Framework\TestCase
         $this->assertTrue($auth->deleteUser(login: 'david2@vielhuber.de'));
     }
 
+    function testCreateUserRejectsExistingUser()
+    {
+        $auth = new \vielhuber\simpleauth\simpleauth(__DIR__ . '/../.env');
+        $this->expectException(\vielhuber\simpleauth\UserException::class);
+        $this->expectExceptionMessage('user already exists');
+        $auth->createUser(login: 'david@vielhuber.de', password: 'replacement-test-password');
+    }
+
+    function testUpdateUserRejectsMissingUser()
+    {
+        $auth = new \vielhuber\simpleauth\simpleauth(__DIR__ . '/../.env');
+        $this->expectException(\vielhuber\simpleauth\UserException::class);
+        $this->expectExceptionMessage('user does not exist');
+        $auth->updateUser(login: 'missing@example.test', password_new: 'replacement-test-password');
+    }
+
+    function testDeleteUserRejectsMissingUser()
+    {
+        $auth = new \vielhuber\simpleauth\simpleauth(__DIR__ . '/../.env');
+        $this->expectException(\vielhuber\simpleauth\UserException::class);
+        $this->expectExceptionMessage('user does not exist');
+        $auth->deleteUser(login: 'missing@example.test');
+    }
+
     function testPasswordReset()
     {
         $auth = new \vielhuber\simpleauth\simpleauth(__DIR__ . '/../.env', 'users', 'email', 30, false);
