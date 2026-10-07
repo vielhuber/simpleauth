@@ -105,12 +105,34 @@ final class CliTest extends \PHPUnit\Framework\TestCase
         $this->assertSame('0', (string) $database->query('SELECT COUNT(*) FROM users')->fetchColumn());
     }
 
+    public function testCommandsIgnoreInheritedDatabaseConfiguration(): void
+    {
+        $connection = getenv('DB_CONNECTION');
+        $host = getenv('DB_HOST');
+        putenv('DB_CONNECTION=sqlite');
+        putenv('DB_HOST=' . $this->directory . '/inherited.sqlite');
+        try {
+            $result = $this->runCommand(['create', 'isolated@example.test', 'test-password']);
+            $this->assertSame(0, $result['exit']);
+            $this->assertSame('User created.' . PHP_EOL, $result['stdout']);
+            $this->assertSame('', $result['stderr']);
+            $this->assertFileExists($this->directory . '/database.sqlite');
+            $this->assertFileDoesNotExist($this->directory . '/inherited.sqlite');
+        } finally {
+            putenv($connection === false ? 'DB_CONNECTION' : 'DB_CONNECTION=' . $connection);
+            putenv($host === false ? 'DB_HOST' : 'DB_HOST=' . $host);
+        }
+    }
+
     private function runCommand(array $arguments): array
     {
+        $environment = array_diff_key(getenv(), \Dotenv\Dotenv::parse(file_get_contents($this->directory . '/.env')));
         $process = proc_open(
             [PHP_BINARY, $this->directory . '/auth.php', ...$arguments],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-            $pipes
+            $pipes,
+            null,
+            $environment
         );
         fclose($pipes[0]);
         $stdout = stream_get_contents($pipes[1]);
