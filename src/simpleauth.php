@@ -75,6 +75,7 @@ class simpleauth
         );
 
         $this->config->TABLE = $table;
+        $this->config->SESSION_TABLE = $table . '_sessions';
         $this->config->LOGIN = $login;
         $this->config->TTL = $ttl;
         $this->config->UUID = $uuid;
@@ -336,7 +337,7 @@ class simpleauth
                 throw new \Exception('login or password wrong');
             }
             $this->throttleClear($login);
-            $data = $this->createAccessToken($user['id'], $user[$this->config->LOGIN]);
+            $data = $this->createAccessToken($user);
             return $this->apiResponse(
                 [
                     'success' => true,
@@ -361,9 +362,8 @@ class simpleauth
     private function apiRefresh()
     {
         try {
-            $user_id = $this->getUserIdFromAccessToken($_SERVER['HTTP_AUTHORIZATION'] ?? '');
-            $user_login = (string) $this->getUserLoginFromAccessToken($_SERVER['HTTP_AUTHORIZATION'] ?? '');
-            $data = $this->createAccessToken($user_id, $user_login);
+            $token = $this->accessTokenData($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+            $data = $this->createAccessToken($this->getUserRowByLogin($token->login), $token->sid);
             return $this->apiResponse(
                 [
                     'success' => true,
@@ -388,7 +388,12 @@ class simpleauth
     private function apiLogout()
     {
         try {
-            $this->getUserIdFromAccessToken($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+            $token = $this->accessTokenData($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+            $this->db->query(
+                'DELETE FROM ' . $this->config->SESSION_TABLE . ' WHERE id = ? AND user_id = ?',
+                $token->sid,
+                (string) $token->sub
+            );
             return $this->apiResponse(
                 [
                     'success' => true,
@@ -703,7 +708,7 @@ class simpleauth
             if (empty($user)) {
                 throw new \Exception('user not found');
             }
-            $data = $this->createAccessToken($user['id'], $user[$this->config->LOGIN]);
+            $data = $this->createAccessToken($user);
             return $this->apiResponse(
                 [
                     'success' => true,
@@ -788,6 +793,19 @@ class simpleauth
         $this->db->query(
             '
             CREATE TABLE IF NOT EXISTS ' .
+                $this->config->SESSION_TABLE .
+                '
+            (
+                id char(64) PRIMARY KEY,
+                user_id varchar(64) NOT NULL,
+                password_fingerprint char(64) NOT NULL,
+                expires_at BIGINT NOT NULL
+            )
+        '
+        );
+        $this->db->query(
+            '
+            CREATE TABLE IF NOT EXISTS ' .
                 $this->config->THROTTLE_TABLE .
                 '
             (
@@ -837,6 +855,12 @@ class simpleauth
             )
         '
         );
+        $this->createIndexIfMissing($this->config->SESSION_TABLE, $this->config->SESSION_TABLE . '_user_id', [
+            'user_id'
+        ]);
+        $this->createIndexIfMissing($this->config->SESSION_TABLE, $this->config->SESSION_TABLE . '_expires_at', [
+            'expires_at'
+        ]);
         $this->createIndexIfMissing(
             $this->config->THROTTLE_TABLE,
             'login_attempts_lookup',
@@ -863,6 +887,7 @@ class simpleauth
     private function deleteTable(): bool
     {
         $this->db->query('DROP TABLE IF EXISTS ' . $this->config->TABLE);
+        $this->db->query('DROP TABLE IF EXISTS ' . $this->config->SESSION_TABLE);
         $this->db->query('DROP TABLE IF EXISTS ' . $this->config->THROTTLE_TABLE);
         $this->db->query('DROP TABLE IF EXISTS ' . $this->config->PASSKEY_TABLE);
         $this->db->query('DROP TABLE IF EXISTS ' . $this->config->PASSKEY_CHALLENGE_TABLE);
@@ -1266,7 +1291,7 @@ class simpleauth
                 'exp' => time() + 60 * 30,
                 'sub' => $user['id'],
                 'login' => $user[$this->config->LOGIN],
-                'password_fingerprint' => $this->passwordResetFingerprint((string) $user['password']),
+                'password_fingerprint' => $this->passwordFingerprint((string) $user['password']),
                 'purpose' => 'password_reset'
             ],
             $this->config->JWT_SECRET,
@@ -1295,10 +1320,24 @@ class simpleauth
         if (empty($user)) {
             throw UserException::notFound();
         }
-        if (($data->password_fingerprint ?? '') !== $this->passwordResetFingerprint((string) $user['password'])) {
+        if (($data->password_fingerprint ?? '') !== $this->passwordFingerprint((string) $user['password'])) {
             throw new \Exception('password reset token expired');
         }
-        return $this->setPassword((string) $user[$this->config->LOGIN], $password);
+        if ($password === '') {
+            throw AuthenticationException::missingPassword();
+        }
+        if (
+            $this->db->query(
+                'UPDATE ' . $this->config->TABLE . ' SET password = ? WHERE id = ? AND password = ?',
+                password_hash($password, PASSWORD_DEFAULT),
+                $user['id'],
+                $user['password']
+            ) !== 1
+        ) {
+            throw AuthenticationException::expiredPasswordResetToken();
+        }
+        $this->revokeUserSessions($user['id']);
+        return true;
     }
 
     public function deletePasskey(string $login, string|int $passkey_id): bool
@@ -1367,6 +1406,7 @@ class simpleauth
                 $login_new,
                 $user['id']
             );
+            $this->revokeUserSessions($user['id']);
         }
         if ($password_new !== null && $password_new !== '') {
             $this->setPassword($login_new !== null && $login_new !== '' ? $login_new : $login, $password_new);
@@ -1385,6 +1425,7 @@ class simpleauth
             password_hash($password, PASSWORD_DEFAULT),
             $user['id']
         );
+        $this->revokeUserSessions($user['id']);
         return true;
     }
 
@@ -1396,10 +1437,8 @@ class simpleauth
             'DELETE FROM ' . $this->config->PASSKEY_CHALLENGE_TABLE . ' WHERE user_id = ?',
             (string) $user['id']
         );
-        $this->db->query(
-            'DELETE FROM ' . $this->config->TABLE . ' WHERE ' . $this->config->LOGIN . ' = ?',
-            $login
-        );
+        $this->db->query('DELETE FROM ' . $this->config->TABLE . ' WHERE id = ?', $user['id']);
+        $this->revokeUserSessions($user['id']);
         return true;
     }
 
@@ -1445,7 +1484,7 @@ class simpleauth
         return (string) $user['id'];
     }
 
-    private function passwordResetFingerprint(string $password_hash): string
+    private function passwordFingerprint(string $password_hash): string
     {
         return hash_hmac('sha256', $password_hash, $this->config->JWT_SECRET);
     }
@@ -1491,6 +1530,9 @@ class simpleauth
         if (!preg_match('/^https?:\/\//i', $url)) {
             $url = $this->passkeyScheme() . '://' . $this->passkeyHost() . '/' . ltrim($url, '/');
         }
+        if (!is_string(parse_url($url, PHP_URL_HOST))) {
+            throw AuthenticationException::invalidPasswordResetUrl();
+        }
         if (str_contains($url, '{token}')) {
             return str_replace('{token}', rawurlencode($token), $url);
         }
@@ -1535,51 +1577,110 @@ class simpleauth
         );
     }
 
-    private function createAccessToken(string|int $user_id, string $user_login): array
+    private function createAccessToken(#[\SensitiveParameter] array $user, ?string $session_id = null): array
     {
         $expires_in = 60 * 60 * 24 * $this->config->TTL;
+        $expires_at = time() + $expires_in;
+        $new_session = $session_id === null;
+        $session_id ??= bin2hex(random_bytes(32));
+        if ($new_session) {
+            $this->db->query('DELETE FROM ' . $this->config->SESSION_TABLE . ' WHERE expires_at <= ?', time());
+            $this->db->query(
+                'INSERT INTO ' .
+                    $this->config->SESSION_TABLE .
+                    '(id, user_id, password_fingerprint, expires_at) VALUES(?,?,?,?)',
+                $session_id,
+                (string) $user['id'],
+                $this->passwordFingerprint((string) $user['password']),
+                $expires_at
+            );
+        }
+        if (!$new_session) {
+            $this->db->query(
+                'UPDATE ' .
+                    $this->config->SESSION_TABLE .
+                    ' SET expires_at = CASE WHEN expires_at < ? THEN ? ELSE expires_at END WHERE id = ?',
+                $expires_at,
+                $expires_at,
+                $session_id
+            );
+        }
         $access_token = JWT::encode(
             [
-                'iss' => @$_SERVER['HTTP_HOST'], // issuer
-                'exp' => time() + $expires_in, // ttl
-                'sub' => $user_id,
-                'login' => $user_login
+                'iss' => $_SERVER['HTTP_HOST'] ?? null,
+                'exp' => $expires_at,
+                'sub' => $user['id'],
+                'login' => $user[$this->config->LOGIN],
+                'purpose' => 'access',
+                'sid' => $session_id
             ],
             $this->config->JWT_SECRET,
             'HS256'
         );
+        $this->accessTokenData($access_token);
 
         return [
             'access_token' => $access_token,
             'expires_in' => $expires_in,
-            'user_id' => $user_id
+            'user_id' => $user['id']
         ];
     }
 
-    private function getUserIdFromAccessToken(?string $access_token): mixed
+    private function getUserIdFromAccessToken(#[\SensitiveParameter] ?string $access_token): mixed
     {
-        try {
-            $data = JWT::decode(
-                str_replace('Bearer ', '', $access_token ?? ''),
-                new Key($this->config->JWT_SECRET, 'HS256')
-            );
-            return $data->sub;
-        } catch (\Exception $e) {
-            throw new \Exception('wrong access token');
-        }
+        return $this->accessTokenData($access_token)->sub;
     }
 
-    private function getUserLoginFromAccessToken(?string $access_token): mixed
+    private function getUserLoginFromAccessToken(#[\SensitiveParameter] ?string $access_token): mixed
     {
-        try {
-            $data = JWT::decode(
-                str_replace('Bearer ', '', $access_token ?? ''),
-                new Key($this->config->JWT_SECRET, 'HS256')
-            );
-            return $data->login;
-        } catch (\Exception $e) {
-            throw new \Exception('wrong access token');
+        return $this->accessTokenData($access_token)->login;
+    }
+
+    private function accessTokenData(#[\SensitiveParameter] ?string $access_token): object
+    {
+        $data = JWT::decode(
+            str_replace(search: 'Bearer ', replace: '', subject: $access_token ?? ''),
+            new Key($this->config->JWT_SECRET, algorithm: 'HS256')
+        );
+        if (
+            ($data->purpose ?? null) !== 'access' ||
+            !is_int($data->exp ?? null) ||
+            $data->exp <= time() ||
+            (!is_int($data->sub ?? null) && !is_string($data->sub ?? null)) ||
+            (string) $data->sub === '' ||
+            !is_string($data->login ?? null) ||
+            $data->login === '' ||
+            !is_string($data->sid ?? null) ||
+            !preg_match('/\A[0-9a-f]{64}\z/', $data->sid)
+        ) {
+            throw AuthenticationException::invalidAccessToken();
         }
+        $user = $this->db->fetch_row('SELECT * FROM ' . $this->config->TABLE . ' WHERE id = ?', $data->sub);
+        if (
+            ($user['id'] ?? null) === null ||
+            (string) $user['id'] !== (string) $data->sub ||
+            (string) $user[$this->config->LOGIN] !== $data->login
+        ) {
+            throw AuthenticationException::invalidAccessToken();
+        }
+        $session = $this->db->fetch_row(
+            'SELECT * FROM ' . $this->config->SESSION_TABLE . ' WHERE id = ? AND user_id = ?',
+            $data->sid,
+            (string) $data->sub
+        );
+        if (
+            ($session['password_fingerprint'] ?? null) === null ||
+            (int) $session['expires_at'] < $data->exp ||
+            !hash_equals($session['password_fingerprint'], $this->passwordFingerprint((string) $user['password']))
+        ) {
+            throw AuthenticationException::invalidAccessToken();
+        }
+        return $data;
+    }
+
+    private function revokeUserSessions(string|int $user_id): void
+    {
+        $this->db->query('DELETE FROM ' . $this->config->SESSION_TABLE . ' WHERE user_id = ?', (string) $user_id);
     }
 
     public function isLoggedIn(): bool
@@ -1652,5 +1753,40 @@ final class UserException extends \DomainException
     public static function notFound(): self
     {
         return new self('user does not exist');
+    }
+}
+
+final class AuthenticationException extends \UnexpectedValueException
+{
+    /**
+     * Rejects tokens that do not identify an active user session.
+     */
+    public static function invalidAccessToken(): self
+    {
+        return new self('wrong access token');
+    }
+
+    /**
+     * Rejects malformed reset destinations after resolving relative paths.
+     */
+    public static function invalidPasswordResetUrl(): self
+    {
+        return new self('password reset url must be a valid http(s) url');
+    }
+
+    /**
+     * Rejects reset tokens consumed by a concurrent password change.
+     */
+    public static function expiredPasswordResetToken(): self
+    {
+        return new self('password reset token expired');
+    }
+
+    /**
+     * Preserves the password requirement when consuming a reset token.
+     */
+    public static function missingPassword(): self
+    {
+        return new self('password missing');
     }
 }

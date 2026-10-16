@@ -82,6 +82,12 @@ $auth = new simpleauth(
 );
 ```
 
+Access tokens are bound to persistent sessions created automatically in `<table>_sessions` (for example `users_sessions`), alongside the other authentication tables. The database account needs permission to create the table and its indexes. Do not run `migrate` on an existing production database: it deletes all authentication tables. Each login creates an independent session, refresh keeps that session, and logout invalidates all of that session's original and refreshed tokens without affecting other sessions. Password changes, password resets, login identifier changes and user deletion through this library invalidate the affected user's sessions.
+
+All access-token checks require an existing user, the matching login identifier and the current password hash. Direct database password changes invalidate tokens while the stored hash differs. To keep sessions revoked even if a previous password hash is restored, use `setPassword` / `updateUser` or delete the user's session rows in the same transaction as the password change. Applications that delete users directly must also delete their `<table>_sessions` rows (by `user_id`) in the same transaction, especially if IDs can be reused or restored. Direct login identifier changes invalidate tokens while the identifier differs; use `updateUser` for permanent revocation.
+
+Upgrading from stateless access tokens requires a one-time login for existing users. Tokens without the new `purpose: access` and `sid` claims are rejected and cannot be refreshed. Existing token claims, public method signatures, endpoints and successful response fields remain unchanged. Signed password-reset tokens and application-specific service tokens are not user-session tokens.
+
 login throttling is enabled by default: after 5 failed login attempts per login and IP within 15 minutes, `/auth/login` responds with status `429`. You can disable it with `throttle: false` or adjust the limits with `throttle`:
 
 ```php
@@ -148,7 +154,9 @@ SMTP_FROM_NAME=simpleauth
 PASSWORD_RESET_URL=/reset-password
 ```
 
-`PASSWORD_RESET_URL` can be absolute (`https://example.com/reset-password`) or relative (`/reset-password`). If it contains `{token}`, the placeholder is replaced. Otherwise the token is appended as `token` query parameter.
+`PASSWORD_RESET_URL` can be absolute (`https://example.com/reset-password`) or relative (`/reset-password`). Relative URLs use the current request's scheme and host, including the existing reverse-proxy handling; no configuration change is required. If the URL contains `{token}`, the placeholder is replaced. Otherwise the token is added as the `token` query parameter.
+
+Relative reset URLs assume a secure deployment. The web server or reverse proxy must accept only authorized hostnames, remove or overwrite client-supplied forwarding headers, and prevent clients from bypassing the trusted proxy. The library does not verify this deployment policy; hostname syntax checks alone do not prevent reset-link poisoning. An absolute configured URL remains supported when the request metadata cannot be trusted.
 
 The password reset flow is:
 
